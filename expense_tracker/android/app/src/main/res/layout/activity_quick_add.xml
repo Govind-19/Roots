@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/widget_background">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Quick Track"
+        android:textColor="#F4F1EA"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:fontFamily="serif"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/input_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Name (e.g. Coffee)"
+        android:textColor="#F4F1EA"
+        android:textColorHint="#80F4F1EA"
+        android:backgroundTint="#F4F1EA"
+        android:inputType="textCapSentences"
+        android:layout_marginBottom="12dp"/>
+
+    <EditText
+        android:id="@+id/input_amount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Amount (₹)"
+        android:textColor="#F4F1EA"
+        android:textColorHint="#80F4F1EA"
+        android:backgroundTint="#F4F1EA"
+        android:inputType="numberDecimal"
+        android:layout_marginBottom="12dp"/>
+
+    <Spinner
+        android:id="@+id/spinner_category"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#F4F1EA"
+        android:layout_marginBottom="24dp"/>
+
+    <Button
+        android:id="@+id/btn_add"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add to Stash"
+        android:textColor="#2D4A3E"
+        android:backgroundTint="#F4F1EA"
+        android:textStyle="bold"/>
+
+</LinearLayout>
