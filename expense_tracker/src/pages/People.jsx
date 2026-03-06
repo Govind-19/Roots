@@ -1,11 +1,36 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
 import { Users, ChevronDown, ChevronUp, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 
+function ExpandableSection({ isExpanded, children }) {
+    const contentRef = useRef(null);
+    const [height, setHeight] = useState(0);
+
+    useEffect(() => {
+        if (contentRef.current) {
+            setHeight(isExpanded ? contentRef.current.scrollHeight : 0);
+        }
+    }, [isExpanded, children]);
+
+    return (
+        <div
+            className="expand-collapse"
+            style={{
+                maxHeight: isExpanded ? `${height}px` : '0px',
+                opacity: isExpanded ? 1 : 0,
+            }}
+        >
+            <div ref={contentRef}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export default function People() {
-    const { peopleData, totalOutstanding, addRepayment, deleteTransaction, deleteRepayment } = useExpenses();
+    const { peopleData, totalOutstanding, addRepayment, deleteTransaction, deleteRepayment, isWarning } = useExpenses();
     const [expandedPerson, setExpandedPerson] = useState(null);
     const [repaymentAmount, setRepaymentAmount] = useState('');
     const [repaymentPerson, setRepaymentPerson] = useState(null);
@@ -19,6 +44,9 @@ export default function People() {
         setRepaymentPerson(null);
     };
 
+    const cardBg = isWarning ? 'bg-[var(--theme-accent-900)]/90' : 'bg-nature-900/90';
+    const cardBorder = isWarning ? 'border-[var(--theme-accent-700)]/50' : 'border-nature-700/50';
+
     return (
         <div className="p-6 pb-24 space-y-6">
             <header>
@@ -27,17 +55,17 @@ export default function People() {
             </header>
 
             {/* Outstanding Summary */}
-            <div className="bg-nature-900/90 backdrop-blur-md rounded-[2rem] p-5 text-cream relative overflow-hidden border border-nature-700/50">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-nature-700/30 rounded-full blur-2xl"></div>
+            <div className={cn("backdrop-blur-md rounded-[2rem] p-5 text-cream relative overflow-hidden theme-transition border", cardBg, cardBorder)}>
+                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
                 <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-1 text-nature-100/80">
+                    <div className="flex items-center gap-2 mb-1 text-white/60">
                         <Users className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-medium tracking-wider uppercase">Total Owed to You</span>
                     </div>
                     <div className="text-3xl font-serif font-bold">
                         {totalOutstanding.toFixed(2)}
                     </div>
-                    <div className="text-xs text-nature-100/60 mt-1">
+                    <div className="text-xs text-white/40 mt-1">
                         {peopleData.filter(p => !p.isSettled).length} active {peopleData.filter(p => !p.isSettled).length === 1 ? 'trail' : 'trails'}
                     </div>
                 </div>
@@ -46,21 +74,23 @@ export default function People() {
             {/* People List */}
             <div className="space-y-3">
                 {peopleData.length === 0 ? (
-                    <div className="text-center py-10 text-nature-700 bg-white/40 backdrop-blur-sm rounded-3xl border-2 border-dashed border-nature-200">
-                        <div className="text-3xl mb-2 opacity-50">
-                            <Users className="w-8 h-8 mx-auto opacity-40" />
-                        </div>
-                        <span className="text-sm">No lending trails yet</span>
-                        <p className="text-xs text-nature-500 mt-1">Use "Lent" in New Track to start</p>
+                    <div className="text-center py-12 text-nature-700 bg-white/40 backdrop-blur-sm rounded-3xl border-2 border-dashed border-nature-200">
+                        <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        <span className="text-sm font-medium">Your pack is empty</span>
+                        <p className="text-xs text-nature-500 mt-1">No lending trails yet. Use "Lent" in New Track to start.</p>
                     </div>
                 ) : (
-                    peopleData.map(person => {
+                    peopleData.map((person, i) => {
                         const isExpanded = expandedPerson === person.name;
                         return (
-                            <div key={person.name} className={cn(
-                                "bg-white/60 backdrop-blur-md rounded-2xl border transition-all",
-                                person.isSettled ? "border-green-200/50" : "border-amber-200/50"
-                            )}>
+                            <div
+                                key={person.name}
+                                className={cn(
+                                    "bg-white/60 backdrop-blur-md rounded-2xl border transition-all animate-item-in",
+                                    person.isSettled ? "border-green-200/50" : "border-amber-200/50"
+                                )}
+                                style={{ animationDelay: `${i * 0.05}s`, animationFillMode: 'both' }}
+                            >
                                 {/* Person Header */}
                                 <button
                                     onClick={() => setExpandedPerson(isExpanded ? null : person.name)}
@@ -99,12 +129,14 @@ export default function People() {
                                                 </div>
                                             )}
                                         </div>
-                                        {isExpanded ? <ChevronUp className="w-4 h-4 text-nature-400" /> : <ChevronDown className="w-4 h-4 text-nature-400" />}
+                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                            <ChevronDown className="w-4 h-4 text-nature-400" />
+                                        </div>
                                     </div>
                                 </button>
 
                                 {/* Expanded Details */}
-                                {isExpanded && (
+                                <ExpandableSection isExpanded={isExpanded}>
                                     <div className="px-4 pb-4 space-y-3 border-t border-nature-100/50 pt-3">
                                         {/* Stats Row */}
                                         <div className="flex gap-2">
@@ -203,7 +235,7 @@ export default function People() {
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                </ExpandableSection>
                             </div>
                         );
                     })
