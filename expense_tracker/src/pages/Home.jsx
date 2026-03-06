@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
-import { ArrowUpCircle, ArrowDownCircle, Wallet, HandCoins, Repeat } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, HandCoins, Repeat, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useCountUp } from '../hooks/useCountUp';
 
 export default function Home({ setActiveTab }) {
     const { currentMonth, totalOutstanding, transactions, isWarning } = useExpenses();
+    const { user, logout } = useAuth();
+    const [showLogout, setShowLogout] = useState(false);
 
     const recentTransactions = transactions.slice(0, 5);
 
@@ -29,8 +33,33 @@ export default function Home({ setActiveTab }) {
                     <h1 className="text-xl font-bold text-nature-900">My Den</h1>
                     <p className="text-nature-700 font-medium text-xs">Track your hunt</p>
                 </div>
-                <div className="w-8 h-8 bg-nature-100/50 rounded-full overflow-hidden border-2 border-nature-800 p-0.5 backdrop-blur-sm">
-                    <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=b6e3f4" alt="Avatar" className="rounded-full" />
+                <div className="relative">
+                    <button
+                        onClick={() => setShowLogout(!showLogout)}
+                        className="w-8 h-8 bg-nature-100/50 rounded-full overflow-hidden border-2 border-nature-800 p-0.5 backdrop-blur-sm"
+                    >
+                        {user?.photoURL ? (
+                            <img src={user.photoURL} alt="Avatar" className="rounded-full w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full rounded-full bg-nature-800 flex items-center justify-center text-cream text-xs font-bold">
+                                {(user?.displayName || user?.email || '?')[0].toUpperCase()}
+                            </div>
+                        )}
+                    </button>
+                    {showLogout && (
+                        <div className="absolute right-0 top-10 bg-white rounded-xl shadow-lg border border-sand p-1 z-50 min-w-[120px]">
+                            <div className="px-3 py-2 text-xs text-nature-700 border-b border-sand truncate max-w-[150px]">
+                                {user?.displayName || user?.email}
+                            </div>
+                            <button
+                                onClick={logout}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                                <LogOut className="w-3.5 h-3.5" />
+                                Sign Out
+                            </button>
+                        </div>
+                    )}
                 </div>
             </header>
 

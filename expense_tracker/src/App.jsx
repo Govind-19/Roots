@@ -1,23 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ExpenseProvider, useExpenses } from './context/ExpenseContext';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Analytics from './pages/Analytics';
 import History from './pages/History';
 import People from './pages/People';
+import Login from './pages/Login';
 import AddTransactionForm from './components/AddTransactionForm';
+import { Loader2 } from 'lucide-react';
 
 function AppContent() {
     const [activeTab, setActiveTab] = useState('home');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [initialType, setInitialType] = useState('expense');
     const [tabKey, setTabKey] = useState(0);
-    const { addTransaction, isWarning } = useExpenses();
+    const { addTransaction, isWarning, dataLoaded } = useExpenses();
 
     const [processedIds, setProcessedIds] = useState(new Set());
 
-    // Dynamic theme system
     useEffect(() => {
         const root = document.documentElement;
         if (isWarning) {
@@ -105,6 +107,14 @@ function AppContent() {
         return () => { isMounted = false; };
     }, [addTransaction]);
 
+    if (!dataLoaded) {
+        return (
+            <div className="min-h-screen bg-cream flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-nature-900 animate-spin" />
+            </div>
+        );
+    }
+
     const renderContent = () => {
         const content = (() => {
             switch (activeTab) {
@@ -144,11 +154,33 @@ function AppContent() {
     );
 }
 
-function App() {
+function AuthenticatedApp() {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-cream flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-nature-900 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!user) {
+        return <Login />;
+    }
+
     return (
         <ExpenseProvider>
             <AppContent />
         </ExpenseProvider>
+    );
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <AuthenticatedApp />
+        </AuthProvider>
     );
 }
 

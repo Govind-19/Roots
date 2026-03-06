@@ -1,4 +1,12 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import { db } from '../firebase';
+import {
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+} from 'firebase/firestore';
 
 const ExpenseContext = createContext();
 
@@ -17,45 +25,97 @@ function getTodayKey() {
 }
 
 export function ExpenseProvider({ children }) {
-    const [transactions, setTransactions] = useState(() => {
-        const saved = localStorage.getItem('transactions');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const { user } = useAuth();
+    const [transactions, setTransactions] = useState([]);
+    const [repayments, setRepayments] = useState([]);
+    const [budgetLimits, setBudgetLimits] = useState({});
+    const [recurringItems, setRecurringItems] = useState([]);
+    const [dataLoaded, setDataLoaded] = useState(false);
 
-    const [repayments, setRepayments] = useState(() => {
-        const saved = localStorage.getItem('repayments');
-        return saved ? JSON.parse(saved) : [];
-    });
+    // Helper to get Firestore doc ref for the user
+    const getUserDocRef = useCallback(() => {
+        if (!user) return null;
+        return doc(db, 'users', user.uid);
+    }, [user]);
 
-    const [budgetLimits, setBudgetLimits] = useState(() => {
-        const saved = localStorage.getItem('budgetLimits');
-        return saved ? JSON.parse(saved) : {};
-    });
+    // Save all data to Firestore
+    const saveToFirestore = useCallback(async (data) => {
+        const ref = getUserDocRef();
+        if (!ref) return;
+        try {
+            await setDoc(ref, {
+                transactions: data.transactions ?? transactions,
+                repayments: data.repayments ?? repayments,
+                budgetLimits: data.budgetLimits ?? budgetLimits,
+                recurringItems: data.recurringItems ?? recurringItems,
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
+        } catch (err) {
+            console.error('Error saving to Firestore:', err);
+        }
+    }, [getUserDocRef, transactions, repayments, budgetLimits, recurringItems]);
 
-    const [recurringItems, setRecurringItems] = useState(() => {
-        const saved = localStorage.getItem('recurringItems');
-        return saved ? JSON.parse(saved) : [];
-    });
-
+    // Load data from Firestore on login, migrate localStorage data if present
     useEffect(() => {
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-    }, [transactions]);
+        if (!user) {
+            setTransactions([]);
+            setRepayments([]);
+            setBudgetLimits({});
+            setRecurringItems([]);
+            setDataLoaded(false);
+            return;
+        }
 
-    useEffect(() => {
-        localStorage.setItem('repayments', JSON.stringify(repayments));
-    }, [repayments]);
+        const ref = doc(db, 'users', user.uid);
 
-    useEffect(() => {
-        localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
-    }, [budgetLimits]);
+        const unsubscribe = onSnapshot(ref, async (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                setTransactions(data.transactions || []);
+                setRepayments(data.repayments || []);
+                setBudgetLimits(data.budgetLimits || {});
+                setRecurringItems(data.recurringItems || []);
+            } else {
+                // First login - migrate localStorage data if available
+                const localTx = localStorage.getItem('transactions');
+                const localRep = localStorage.getItem('repayments');
+                const localBudget = localStorage.getItem('budgetLimits');
+                const localRecurring = localStorage.getItem('recurringItems');
 
-    useEffect(() => {
-        localStorage.setItem('recurringItems', JSON.stringify(recurringItems));
-    }, [recurringItems]);
+                const migrated = {
+                    transactions: localTx ? JSON.parse(localTx) : [],
+                    repayments: localRep ? JSON.parse(localRep) : [],
+                    budgetLimits: localBudget ? JSON.parse(localBudget) : {},
+                    recurringItems: localRecurring ? JSON.parse(localRecurring) : [],
+                    updatedAt: new Date().toISOString(),
+                };
+
+                await setDoc(ref, migrated);
+                setTransactions(migrated.transactions);
+                setRepayments(migrated.repayments);
+                setBudgetLimits(migrated.budgetLimits);
+                setRecurringItems(migrated.recurringItems);
+
+                // Clear localStorage after migration
+                if (localTx || localRep || localBudget || localRecurring) {
+                    localStorage.removeItem('transactions');
+                    localStorage.removeItem('repayments');
+                    localStorage.removeItem('budgetLimits');
+                    localStorage.removeItem('recurringItems');
+                    localStorage.removeItem('recurringLastProcessed');
+                }
+            }
+            setDataLoaded(true);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     // Process recurring transactions on load
     useEffect(() => {
-        const lastProcessed = localStorage.getItem('recurringLastProcessed');
+        if (!dataLoaded || !user) return;
+
+        const lastProcessed = localStorage.getItem(`recurringLastProcessed_${user.uid}`);
         const today = getTodayKey();
         if (lastProcessed === today) return;
 
@@ -97,54 +157,88 @@ export function ExpenseProvider({ children }) {
         });
 
         if (newTransactions.length > 0) {
-            setTransactions(prev => [...newTransactions, ...prev]);
-            setRecurringItems(prev => prev.map(item => {
+            const updatedTransactions = [...newTransactions, ...transactions];
+            const updatedRecurring = recurringItems.map(item => {
                 const wasAdded = newTransactions.some(t => t.recurringId === item.id);
                 return wasAdded ? { ...item, lastRun: getTodayKey() } : item;
-            }));
+            });
+            setTransactions(updatedTransactions);
+            setRecurringItems(updatedRecurring);
+            saveToFirestore({ transactions: updatedTransactions, recurringItems: updatedRecurring });
         }
 
-        localStorage.setItem('recurringLastProcessed', today);
-    }, []);
+        localStorage.setItem(`recurringLastProcessed_${user.uid}`, today);
+    }, [dataLoaded]);
 
     const addTransaction = useCallback((transaction) => {
-        setTransactions(prev => [{ id: crypto.randomUUID(), ...transaction }, ...prev]);
-    }, []);
+        setTransactions(prev => {
+            const updated = [{ id: crypto.randomUUID(), ...transaction }, ...prev];
+            saveToFirestore({ transactions: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const deleteTransaction = useCallback((id) => {
-        setTransactions(prev => prev.filter(t => t.id !== id));
-    }, []);
+        setTransactions(prev => {
+            const updated = prev.filter(t => t.id !== id);
+            saveToFirestore({ transactions: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const addRepayment = useCallback((repayment) => {
-        setRepayments(prev => [{ id: crypto.randomUUID(), date: new Date().toISOString(), ...repayment }, ...prev]);
-    }, []);
+        setRepayments(prev => {
+            const updated = [{ id: crypto.randomUUID(), date: new Date().toISOString(), ...repayment }, ...prev];
+            saveToFirestore({ repayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const deleteRepayment = useCallback((id) => {
-        setRepayments(prev => prev.filter(r => r.id !== id));
-    }, []);
+        setRepayments(prev => {
+            const updated = prev.filter(r => r.id !== id);
+            saveToFirestore({ repayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const setBudgetLimit = useCallback((category, limit) => {
         setBudgetLimits(prev => {
+            let updated;
             if (limit <= 0) {
-                const next = { ...prev };
-                delete next[category];
-                return next;
+                updated = { ...prev };
+                delete updated[category];
+            } else {
+                updated = { ...prev, [category]: limit };
             }
-            return { ...prev, [category]: limit };
+            saveToFirestore({ budgetLimits: updated });
+            return updated;
         });
-    }, []);
+    }, [saveToFirestore]);
 
     const addRecurringItem = useCallback((item) => {
-        setRecurringItems(prev => [{ id: crypto.randomUUID(), createdDate: getTodayKey(), paused: false, ...item }, ...prev]);
-    }, []);
+        setRecurringItems(prev => {
+            const updated = [{ id: crypto.randomUUID(), createdDate: getTodayKey(), paused: false, ...item }, ...prev];
+            saveToFirestore({ recurringItems: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const deleteRecurringItem = useCallback((id) => {
-        setRecurringItems(prev => prev.filter(r => r.id !== id));
-    }, []);
+        setRecurringItems(prev => {
+            const updated = prev.filter(r => r.id !== id);
+            saveToFirestore({ recurringItems: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const toggleRecurringPause = useCallback((id) => {
-        setRecurringItems(prev => prev.map(r => r.id === id ? { ...r, paused: !r.paused } : r));
-    }, []);
+        setRecurringItems(prev => {
+            const updated = prev.map(r => r.id === id ? { ...r, paused: !r.paused } : r);
+            saveToFirestore({ recurringItems: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
 
     const getMonthlyData = useCallback((monthKey) => {
         const monthTransactions = transactions.filter(t => getMonthKey(t.date) === monthKey);
@@ -188,7 +282,6 @@ export function ExpenseProvider({ children }) {
     const currentMonthKey = getCurrentMonthKey();
     const currentMonth = useMemo(() => getMonthlyData(currentMonthKey), [getMonthlyData, currentMonthKey]);
 
-    // Health check: expenses > income = warning
     const isWarning = useMemo(() => {
         return currentMonth.expenses > currentMonth.income && currentMonth.income > 0;
     }, [currentMonth.expenses, currentMonth.income]);
@@ -212,7 +305,6 @@ export function ExpenseProvider({ children }) {
         transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
         [transactions]);
 
-    // Category spending for current month (for budget tracking)
     const categorySpending = useMemo(() => {
         const spending = {};
         transactions
@@ -286,6 +378,7 @@ export function ExpenseProvider({ children }) {
             addRecurringItem,
             deleteRecurringItem,
             toggleRecurringPause,
+            dataLoaded,
         }}>
             {children}
         </ExpenseContext.Provider>
