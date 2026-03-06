@@ -12,10 +12,8 @@ function getCurrentMonthKey() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function getPreviousMonthKey(monthKey) {
-    const [year, month] = monthKey.split('-').map(Number);
-    const d = new Date(year, month - 2, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+function getTodayKey() {
+    return new Date().toISOString().split('T')[0];
 }
 
 export function ExpenseProvider({ children }) {
@@ -29,6 +27,16 @@ export function ExpenseProvider({ children }) {
         return saved ? JSON.parse(saved) : [];
     });
 
+    const [budgetLimits, setBudgetLimits] = useState(() => {
+        const saved = localStorage.getItem('budgetLimits');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const [recurringItems, setRecurringItems] = useState(() => {
+        const saved = localStorage.getItem('recurringItems');
+        return saved ? JSON.parse(saved) : [];
+    });
+
     useEffect(() => {
         localStorage.setItem('transactions', JSON.stringify(transactions));
     }, [transactions]);
@@ -36,6 +44,68 @@ export function ExpenseProvider({ children }) {
     useEffect(() => {
         localStorage.setItem('repayments', JSON.stringify(repayments));
     }, [repayments]);
+
+    useEffect(() => {
+        localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
+    }, [budgetLimits]);
+
+    useEffect(() => {
+        localStorage.setItem('recurringItems', JSON.stringify(recurringItems));
+    }, [recurringItems]);
+
+    // Process recurring transactions on load
+    useEffect(() => {
+        const lastProcessed = localStorage.getItem('recurringLastProcessed');
+        const today = getTodayKey();
+        if (lastProcessed === today) return;
+
+        const now = new Date();
+        const newTransactions = [];
+
+        recurringItems.forEach(item => {
+            if (item.paused) return;
+            const lastRun = item.lastRun ? new Date(item.lastRun) : new Date(item.createdDate);
+            let shouldAdd = false;
+
+            if (item.frequency === 'daily') {
+                shouldAdd = getTodayKey() > (item.lastRun || item.createdDate);
+            } else if (item.frequency === 'weekly') {
+                const daysSince = Math.floor((now - lastRun) / (1000 * 60 * 60 * 24));
+                shouldAdd = daysSince >= 7;
+            } else if (item.frequency === 'monthly') {
+                const monthsSince = (now.getFullYear() - lastRun.getFullYear()) * 12 + (now.getMonth() - lastRun.getMonth());
+                shouldAdd = monthsSince >= 1;
+            }
+
+            if (shouldAdd) {
+                const localNow = new Date();
+                localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
+                newTransactions.push({
+                    id: crypto.randomUUID(),
+                    name: item.name,
+                    amount: item.amount,
+                    type: item.type,
+                    category: item.category,
+                    paymentMode: item.paymentMode,
+                    date: localNow.toISOString().slice(0, 16),
+                    note: `Recurring (${item.frequency})`,
+                    recurring: true,
+                    recurringId: item.id,
+                    ...(item.personName ? { personName: item.personName } : {}),
+                });
+            }
+        });
+
+        if (newTransactions.length > 0) {
+            setTransactions(prev => [...newTransactions, ...prev]);
+            setRecurringItems(prev => prev.map(item => {
+                const wasAdded = newTransactions.some(t => t.recurringId === item.id);
+                return wasAdded ? { ...item, lastRun: getTodayKey() } : item;
+            }));
+        }
+
+        localStorage.setItem('recurringLastProcessed', today);
+    }, []);
 
     const addTransaction = useCallback((transaction) => {
         setTransactions(prev => [{ id: crypto.randomUUID(), ...transaction }, ...prev]);
@@ -53,7 +123,29 @@ export function ExpenseProvider({ children }) {
         setRepayments(prev => prev.filter(r => r.id !== id));
     }, []);
 
-    // Get monthly data for a specific month, with carry-over from all previous months
+    const setBudgetLimit = useCallback((category, limit) => {
+        setBudgetLimits(prev => {
+            if (limit <= 0) {
+                const next = { ...prev };
+                delete next[category];
+                return next;
+            }
+            return { ...prev, [category]: limit };
+        });
+    }, []);
+
+    const addRecurringItem = useCallback((item) => {
+        setRecurringItems(prev => [{ id: crypto.randomUUID(), createdDate: getTodayKey(), paused: false, ...item }, ...prev]);
+    }, []);
+
+    const deleteRecurringItem = useCallback((id) => {
+        setRecurringItems(prev => prev.filter(r => r.id !== id));
+    }, []);
+
+    const toggleRecurringPause = useCallback((id) => {
+        setRecurringItems(prev => prev.map(r => r.id === id ? { ...r, paused: !r.paused } : r));
+    }, []);
+
     const getMonthlyData = useCallback((monthKey) => {
         const monthTransactions = transactions.filter(t => getMonthKey(t.date) === monthKey);
         const monthIncome = monthTransactions
@@ -66,7 +158,6 @@ export function ExpenseProvider({ children }) {
             .filter(t => t.type === 'lent')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        // Carry-over: sum of all income - expenses from all months BEFORE this one
         const carryOver = transactions
             .filter(t => getMonthKey(t.date) < monthKey)
             .reduce((acc, t) => {
@@ -75,7 +166,6 @@ export function ExpenseProvider({ children }) {
                 if (t.type === 'lent') return acc - t.amount;
                 return acc;
             }, 0)
-            // Add repayments received before this month
             + repayments
                 .filter(r => getMonthKey(r.date) < monthKey)
                 .reduce((sum, r) => sum + r.amount, 0);
@@ -95,11 +185,14 @@ export function ExpenseProvider({ children }) {
         };
     }, [transactions, repayments]);
 
-    // Current month data
     const currentMonthKey = getCurrentMonthKey();
     const currentMonth = useMemo(() => getMonthlyData(currentMonthKey), [getMonthlyData, currentMonthKey]);
 
-    // Overall balance (all time)
+    // Health check: expenses > income = warning
+    const isWarning = useMemo(() => {
+        return currentMonth.expenses > currentMonth.income && currentMonth.income > 0;
+    }, [currentMonth.expenses, currentMonth.income]);
+
     const balance = useMemo(() => {
         const txBalance = transactions.reduce((acc, t) => {
             if (t.type === 'income') return acc + t.amount;
@@ -119,7 +212,17 @@ export function ExpenseProvider({ children }) {
         transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
         [transactions]);
 
-    // People / Lending data
+    // Category spending for current month (for budget tracking)
+    const categorySpending = useMemo(() => {
+        const spending = {};
+        transactions
+            .filter(t => t.type === 'expense' && getMonthKey(t.date) === currentMonthKey)
+            .forEach(t => {
+                spending[t.category] = (spending[t.category] || 0) + t.amount;
+            });
+        return spending;
+    }, [transactions, currentMonthKey]);
+
     const peopleData = useMemo(() => {
         const lentTransactions = transactions.filter(t => t.type === 'lent');
         const peopleMap = {};
@@ -175,6 +278,14 @@ export function ExpenseProvider({ children }) {
             getMonthKey,
             peopleData,
             totalOutstanding,
+            isWarning,
+            budgetLimits,
+            setBudgetLimit,
+            categorySpending,
+            recurringItems,
+            addRecurringItem,
+            deleteRecurringItem,
+            toggleRecurringPause,
         }}>
             {children}
         </ExpenseContext.Provider>

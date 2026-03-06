@@ -5,24 +5,34 @@
 @theme {
     --font-sans: 'Inter', sans-serif;
     --font-serif: 'Inter', sans-serif;
-    /* Override serif to use Inter */
 
     --color-nature-900: #1a2e22;
-    /* Deep Forest Green */
     --color-nature-800: #2d4a3e;
-    /* Forest Green */
     --color-nature-700: #3e6151;
     --color-nature-100: #e8f5e9;
-    /* Light Mint */
 
     --color-earth-900: #3e2723;
     --color-earth-600: #8d6e63;
-    /* Brown */
     --color-earth-100: #efebe9;
 
     --color-cream: #f4f1ea;
-    /* Paper/Cream Background */
     --color-sand: #e6e2d3;
+
+    --color-accent-900: var(--theme-accent-900, #1a2e22);
+    --color-accent-800: var(--theme-accent-800, #2d4a3e);
+    --color-accent-700: var(--theme-accent-700, #3e6151);
+}
+
+:root {
+    --theme-accent-900: #1a2e22;
+    --theme-accent-800: #2d4a3e;
+    --theme-accent-700: #3e6151;
+}
+
+:root.theme-warning {
+    --theme-accent-900: #4a1520;
+    --theme-accent-800: #7c1d2e;
+    --theme-accent-700: #a52940;
 }
 
 body {
@@ -33,12 +43,138 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', sans-serif;
-    /* Clean font for headers too */
+}
+
+/* Theme transition on accent-driven elements */
+.theme-transition {
+    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Pulse animation for warning state */
+@keyframes warning-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124, 29, 46, 0.3); }
+    50% { box-shadow: 0 0 0 12px rgba(124, 29, 46, 0); }
+}
+.animate-warning-pulse {
+    animation: warning-pulse 2s ease-in-out infinite;
+}
+
+/* Modal slide up */
+@keyframes modal-slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes modal-slide-down {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(100%); opacity: 0; }
+}
+.animate-modal-up {
+    animation: modal-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.animate-modal-down {
+    animation: modal-slide-down 0.25s ease-in forwards;
+}
+
+/* Backdrop fade */
+@keyframes backdrop-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes backdrop-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+.animate-backdrop-in {
+    animation: backdrop-fade-in 0.25s ease forwards;
+}
+.animate-backdrop-out {
+    animation: backdrop-fade-out 0.2s ease forwards;
+}
+
+/* Transaction item slide in */
+@keyframes item-slide-in {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.animate-item-in {
+    animation: item-slide-in 0.3s ease-out forwards;
+}
+
+/* Tab crossfade */
+@keyframes tab-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-tab-in {
+    animation: tab-fade-in 0.25s ease-out forwards;
+}
+
+/* Shake animation for budget alert */
+@keyframes budget-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+    20%, 40%, 60%, 80% { transform: translateX(3px); }
+}
+.animate-shake {
+    animation: budget-shake 0.6s ease-in-out;
+}
+
+/* FAB mini-button pop-in */
+@keyframes fab-pop-in {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.animate-fab-pop {
+    animation: fab-pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Expand/collapse height */
+.expand-collapse {
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.25s ease;
+}
+
+/* Ripple effect */
+@keyframes ripple {
+    from { transform: scale(0); opacity: 0.6; }
+    to { transform: scale(2.5); opacity: 0; }
+}
+.animate-ripple {
+    animation: ripple 0.6s ease-out forwards;
+}
+
+/* Counter digit animation */
+@keyframes count-shift {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.animate-count {
+    animation: count-shift 0.4s ease-out;
+}
+
+/* Scrollbar hide */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Toast animation */
+@keyframes toast-in {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes toast-out {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(-100%); opacity: 0; }
+}
+.animate-toast-in {
+    animation: toast-in 0.3s ease-out forwards;
+}
+.animate-toast-out {
+    animation: toast-out 0.3s ease-in forwards;
 }

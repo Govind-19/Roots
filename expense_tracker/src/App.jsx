@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { ExpenseProvider, useExpenses } from './context/ExpenseContext';
 import Layout from './components/Layout';
@@ -9,123 +9,147 @@ import People from './pages/People';
 import AddTransactionForm from './components/AddTransactionForm';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState('home');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const { addTransaction } = useExpenses();
+    const [activeTab, setActiveTab] = useState('home');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [initialType, setInitialType] = useState('expense');
+    const [tabKey, setTabKey] = useState(0);
+    const { addTransaction, isWarning } = useExpenses();
 
-  const [processedIds, setProcessedIds] = useState(new Set());
+    const [processedIds, setProcessedIds] = useState(new Set());
 
-  const handleDeepLink = (url) => {
-    if (!url) return;
-    try {
-      const urlObj = new URL(url);
+    // Dynamic theme system
+    useEffect(() => {
+        const root = document.documentElement;
+        if (isWarning) {
+            root.classList.add('theme-warning');
+        } else {
+            root.classList.remove('theme-warning');
+        }
+    }, [isWarning]);
 
-      if (url.includes('add-expense')) {
+    const handleTabChange = (tab) => {
+        if (tab !== activeTab) {
+            setTabKey(prev => prev + 1);
+            setActiveTab(tab);
+        }
+    };
+
+    const handleOpenModal = (type = 'expense') => {
+        setInitialType(type);
         setIsAddModalOpen(true);
-      }
+    };
 
-      if (url.includes('save-transaction')) {
-        const params = new URLSearchParams(urlObj.search);
+    const handleDeepLink = (url) => {
+        if (!url) return;
+        try {
+            const urlObj = new URL(url);
 
-        // Generate a unique ID for this specific deep link event based on params + time
-        // Since we don't have a unique ID from the intent, we'll use a simple check
-        // to ensure we don't process the exact same transaction within a few seconds.
-        const name = params.get('name');
-        const amount = parseFloat(params.get('amount'));
-        const category = params.get('category');
+            if (url.includes('add-expense')) {
+                setIsAddModalOpen(true);
+            }
 
-        // Create a temporary unique key for this transaction attempt
-        const key = `${name}-${amount}-${category}-${new Date().getMinutes()}`;
+            if (url.includes('save-transaction')) {
+                const params = new URLSearchParams(urlObj.search);
+                const name = params.get('name');
+                const amount = parseFloat(params.get('amount'));
+                const category = params.get('category');
 
-        if (processedIds.has(key)) {
-          console.log('Transaction already processed:', key);
-          return;
+                const key = `${name}-${amount}-${category}-${new Date().getMinutes()}`;
+
+                if (processedIds.has(key)) return;
+
+                if (name && amount && category) {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    const localDate = now.toISOString().slice(0, 16);
+
+                    addTransaction({
+                        name,
+                        amount,
+                        category,
+                        type: 'expense',
+                        paymentMode: 'upi',
+                        date: localDate,
+                        note: 'Quick Add'
+                    });
+
+                    setProcessedIds(prev => new Set(prev).add(key));
+
+                    setTimeout(() => {
+                        setProcessedIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(key);
+                            return next;
+                        });
+                    }, 60000);
+                }
+            }
+        } catch (e) {
+            console.error('Deep link error:', e);
         }
+    };
 
-        if (name && amount && category) {
-          // Calculate local time for correct storage
-          const now = new Date();
-          now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-          const localDate = now.toISOString().slice(0, 16);
+    useEffect(() => {
+        let isMounted = true;
 
-          addTransaction({
-            name,
-            amount,
-            category,
-            type: 'expense',
-            paymentMode: 'upi',
-            date: localDate,
-            note: 'Quick Add'
-          });
+        CapacitorApp.addListener('appUrlOpen', (data) => {
+            if (isMounted) handleDeepLink(data.url);
+        });
 
+        CapacitorApp.getLaunchUrl().then((data) => {
+            if (isMounted && data && data.url) {
+                handleDeepLink(data.url);
+            }
+        });
 
-          setProcessedIds(prev => new Set(prev).add(key));
-          // alert('Track Saved! 🍃'); // Removed to bypass confirmation
+        return () => { isMounted = false; };
+    }, [addTransaction]);
 
-          // Clear the processed ID after a minute to allow similar transactions later
-          setTimeout(() => {
-            setProcessedIds(prev => {
-              const next = new Set(prev);
-              next.delete(key);
-              return next;
-            });
-          }, 60000);
-        }
-      }
-    } catch (e) {
-      console.error('Deep link error:', e);
-    }
-  };
+    const renderContent = () => {
+        const content = (() => {
+            switch (activeTab) {
+                case 'home': return <Home setActiveTab={handleTabChange} />;
+                case 'analytics': return <Analytics />;
+                case 'history': return <History />;
+                case 'people': return <People />;
+                default: return <Home setActiveTab={handleTabChange} />;
+            }
+        })();
 
-  useEffect(() => {
-    let isMounted = true;
+        return (
+            <div key={tabKey} className="animate-tab-in">
+                {content}
+            </div>
+        );
+    };
 
-    CapacitorApp.addListener('appUrlOpen', (data) => {
-      if (isMounted) handleDeepLink(data.url);
-    });
+    return (
+        <>
+            <Layout
+                activeTab={activeTab}
+                setActiveTab={handleTabChange}
+                onAddTransaction={handleOpenModal}
+                isWarning={isWarning}
+            >
+                {renderContent()}
+            </Layout>
 
-    CapacitorApp.getLaunchUrl().then((data) => {
-      if (isMounted && data && data.url) {
-        handleDeepLink(data.url);
-      }
-    });
-
-    return () => { isMounted = false; };
-  }, [addTransaction]);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'home': return <Home setActiveTab={setActiveTab} />;
-      case 'analytics': return <Analytics />;
-      case 'history': return <History />;
-      case 'people': return <People />;
-      default: return <Home setActiveTab={setActiveTab} />;
-    }
-  };
-
-  return (
-    <>
-      <Layout
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onAddTransaction={() => setIsAddModalOpen(true)}
-      >
-        {renderContent()}
-      </Layout>
-
-      {isAddModalOpen && (
-        <AddTransactionForm onClose={() => setIsAddModalOpen(false)} />
-      )}
-    </>
-  );
+            {isAddModalOpen && (
+                <AddTransactionForm
+                    onClose={() => setIsAddModalOpen(false)}
+                    initialType={initialType}
+                />
+            )}
+        </>
+    );
 }
 
 function App() {
-  return (
-    <ExpenseProvider>
-      <AppContent />
-    </ExpenseProvider>
-  );
+    return (
+        <ExpenseProvider>
+            <AppContent />
+        </ExpenseProvider>
+    );
 }
 
 export default App;

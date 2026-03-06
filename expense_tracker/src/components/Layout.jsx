@@ -1,12 +1,71 @@
-import { Plus } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Plus, X, ArrowUpCircle, ArrowDownCircle, HandCoins } from 'lucide-react';
 import BottomNav from './BottomNav';
 
-export default function Layout({ children, activeTab, setActiveTab, onAddTransaction }) {
+export default function Layout({ children, activeTab, setActiveTab, onAddTransaction, isWarning }) {
+    const [fabExpanded, setFabExpanded] = useState(false);
+    const [ripple, setRipple] = useState(false);
+    const timerRef = useRef(null);
+    const isLongPressRef = useRef(false);
+
+    const handleStart = useCallback((e) => {
+        e.preventDefault();
+        isLongPressRef.current = false;
+        setRipple(true);
+        timerRef.current = setTimeout(() => {
+            isLongPressRef.current = true;
+            setFabExpanded(true);
+            setRipple(false);
+        }, 500);
+    }, []);
+
+    const handleEnd = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        setRipple(false);
+        if (!isLongPressRef.current) {
+            onAddTransaction('expense');
+        }
+    }, [onAddTransaction]);
+
+    const handleCancel = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        setRipple(false);
+    }, []);
+
+    const handleMiniSelect = (type) => {
+        setFabExpanded(false);
+        onAddTransaction(type);
+    };
+
+    // Close expanded FAB on outside click
+    useEffect(() => {
+        if (!fabExpanded) return;
+        const handler = (e) => {
+            if (e.target.closest('.fab-zone')) return;
+            setFabExpanded(false);
+        };
+        document.addEventListener('pointerdown', handler);
+        return () => document.removeEventListener('pointerdown', handler);
+    }, [fabExpanded]);
+
+    const accentBg = isWarning ? 'bg-[var(--theme-accent-800)]' : 'bg-nature-800';
+    const accentHover = isWarning ? 'hover:bg-[var(--theme-accent-900)]' : 'hover:bg-nature-900';
+
+    const miniButtons = [
+        { type: 'expense', label: 'Expense', icon: ArrowUpCircle, color: 'bg-red-500', x: -56, y: -68 },
+        { type: 'income', label: 'Income', icon: ArrowDownCircle, color: 'bg-green-600', x: 0, y: -82 },
+        { type: 'lent', label: 'Lent', icon: HandCoins, color: 'bg-amber-500', x: 56, y: -68 },
+    ];
+
     return (
         <div className="h-[100dvh] w-full flex justify-center bg-[#1a1a1a]">
-            <div
-                className="w-full max-w-md h-full bg-cream shadow-2xl relative flex flex-col overflow-hidden"
-            >
+            <div className="w-full max-w-md h-full bg-cream shadow-2xl relative flex flex-col overflow-hidden">
                 {/* Elegant Background Pattern */}
                 <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,#d4c5b0,transparent_70%)]"></div>
@@ -18,17 +77,58 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
                     {children}
                 </main>
 
-                <button
-                    onClick={onAddTransaction}
-                    className="absolute bottom-24 right-6 z-50 bg-nature-800 text-cream p-4 rounded-full shadow-2xl hover:bg-nature-900 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-nature-100 border-2 border-cream/50"
-                    aria-label="Add Transaction"
-                >
-                    <Plus className="w-8 h-8" />
-                </button>
+                {/* FAB Zone */}
+                <div className="fab-zone absolute bottom-24 right-6 z-50">
+                    {/* Expanded mini-buttons */}
+                    {fabExpanded && (
+                        <>
+                            {/* Overlay for dimming */}
+                            <div className="fixed inset-0 bg-black/20 -z-10" />
+                            {miniButtons.map((btn, i) => (
+                                <button
+                                    key={btn.type}
+                                    onClick={() => handleMiniSelect(btn.type)}
+                                    className="absolute flex flex-col items-center gap-1 animate-fab-pop"
+                                    style={{
+                                        bottom: '100%',
+                                        right: '50%',
+                                        transform: `translate(${-btn.x}px, ${btn.y}px)`,
+                                        animationDelay: `${i * 0.06}s`,
+                                        animationFillMode: 'both',
+                                    }}
+                                >
+                                    <div className={`${btn.color} text-white p-3 rounded-full shadow-xl`}>
+                                        <btn.icon className="w-5 h-5" />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-nature-900 bg-white/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                                        {btn.label}
+                                    </span>
+                                </button>
+                            ))}
+                        </>
+                    )}
 
-                <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+                    {/* Main FAB */}
+                    <button
+                        onMouseDown={handleStart}
+                        onMouseUp={handleEnd}
+                        onMouseLeave={handleCancel}
+                        onTouchStart={handleStart}
+                        onTouchEnd={handleEnd}
+                        onTouchCancel={handleCancel}
+                        className={`relative ${accentBg} ${accentHover} text-cream p-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-nature-100 border-2 border-cream/50 theme-transition overflow-hidden select-none`}
+                        aria-label="Add Transaction"
+                    >
+                        {ripple && (
+                            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="w-12 h-12 rounded-full bg-white/30 animate-ripple" />
+                            </span>
+                        )}
+                        {fabExpanded ? <X className="w-8 h-8 relative z-10" /> : <Plus className="w-8 h-8 relative z-10" />}
+                    </button>
+                </div>
 
-
+                <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} isWarning={isWarning} />
             </div>
         </div>
     );
