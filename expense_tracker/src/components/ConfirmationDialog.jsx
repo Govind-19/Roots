@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDestructive = false }) {
     const [isVisible, setIsVisible] = useState(false);
@@ -16,8 +17,8 @@ export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, 
 
     if (!isVisible && !isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div
                 className={cn(
                     "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300",
@@ -71,6 +72,7 @@ export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, 
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
