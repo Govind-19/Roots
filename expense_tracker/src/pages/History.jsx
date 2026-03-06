@@ -1,9 +1,12 @@
 import { useExpenses } from '../context/ExpenseContext';
 import { Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useState } from 'react';
+import ConfirmationDialog from '../components/ConfirmationDialog';
 
 export default function History() {
     const { transactions, deleteTransaction } = useExpenses();
+    const [transactionToDelete, setTransactionToDelete] = useState(null);
 
     return (
         <div className="p-6 pb-24 space-y-5">
@@ -57,7 +60,7 @@ export default function History() {
                                             {t.type === 'income' ? '+' : '-'}₹{t.amount.toFixed(2)}
                                         </div>
                                         <button
-                                            onClick={() => deleteTransaction(t.id)}
+                                            onClick={() => setTransactionToDelete(t)}
                                             className="p-2 text-nature-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -69,6 +72,16 @@ export default function History() {
                     ))
                 )}
             </div>
+
+            <ConfirmationDialog
+                isOpen={!!transactionToDelete}
+                onClose={() => setTransactionToDelete(null)}
+                onConfirm={() => deleteTransaction(transactionToDelete.id)}
+                title="Delete Record"
+                message={`Are you sure you want to delete this ${transactionToDelete?.type === 'income' ? 'income' : 'expense'} of ₹${transactionToDelete?.amount?.toFixed(2)}?`}
+                confirmText="Delete"
+                isDestructive={true}
+            />
         </div>
     );
 }

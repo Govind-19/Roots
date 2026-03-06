@@ -86,18 +86,6 @@ export default function AddTransactionForm({ onClose }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Name</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full px-5 py-3 bg-white border-2 border-sand rounded-xl focus:ring-4 focus:ring-nature-100 focus:border-nature-800 transition-all font-medium text-nature-900 placeholder:text-nature-300"
-                            placeholder="e.g. Berries, Honey, Cave Rent"
-                            autoFocus
-                        />
-                    </div>
-
-                    <div>
                         <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Amount</label>
                         <div className="relative">
                             <span className="absolute left-5 top-1/2 -translate-y-1/2 text-nature-400 font-serif font-bold text-lg">₹</span>
@@ -107,9 +95,21 @@ export default function AddTransactionForm({ onClose }) {
                                 onChange={(e) => setAmount(e.target.value)}
                                 className="w-full pl-10 pr-5 py-3 bg-white border-2 border-sand rounded-xl focus:ring-4 focus:ring-nature-100 focus:border-nature-800 transition-all text-xl font-serif font-bold text-nature-900 placeholder:text-nature-200"
                                 placeholder="0.00"
+                                autoFocus
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Name</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full px-5 py-3 bg-white border-2 border-sand rounded-xl focus:ring-4 focus:ring-nature-100 focus:border-nature-800 transition-all font-medium text-nature-900 placeholder:text-nature-300"
+                            placeholder="e.g. Berries, Honey, Cave Rent"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
