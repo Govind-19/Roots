@@ -94,10 +94,10 @@ function AppContent() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home': return <Home />;
+      case 'home': return <Home setActiveTab={setActiveTab} />;
       case 'analytics': return <Analytics />;
       case 'history': return <History />;
-      default: return <Home />;
+      default: return <Home setActiveTab={setActiveTab} />;
     }
   };
 

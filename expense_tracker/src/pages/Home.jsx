@@ -2,7 +2,7 @@ import { useExpenses } from '../context/ExpenseContext';
 import { ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export default function Home() {
+export default function Home({ setActiveTab }) {
     const { balance, income, expense, transactions } = useExpenses();
 
     const recentTransactions = transactions.slice(0, 5);
@@ -56,7 +56,7 @@ export default function Home() {
             <div>
                 <div className="flex justify-between items-center mb-3">
                     <h2 className="text-base font-bold text-nature-900">Recent Tracks</h2>
-                    <button className="text-nature-800 text-[10px] font-bold hover:underline">View All</button>
+                    <button onClick={() => setActiveTab('history')} className="text-nature-800 text-[10px] font-bold hover:underline">View All</button>
                 </div>
 
                 <div className="space-y-2.5">
