@@ -1,5 +1,5 @@
 import { useExpenses } from '../context/ExpenseContext';
-import { Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState } from 'react';
 import ConfirmationDialog from '../components/ConfirmationDialog';
@@ -18,7 +18,7 @@ export default function History() {
             <div className="space-y-6">
                 {transactions.length === 0 ? (
                     <div className="text-center py-10 text-nature-700 bg-white/40 backdrop-blur-sm rounded-3xl border-2 border-dashed border-nature-200">
-                        <div className="text-3xl mb-2 opacity-50">🍃</div>
+                        <div className="text-3xl mb-2 opacity-50">{'\ud83c\udf43'}</div>
                         <span className="text-sm">No trails left behind</span>
                     </div>
                 ) : (
@@ -38,16 +38,27 @@ export default function History() {
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
                                             "w-10 h-10 rounded-xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110",
-                                            t.type === 'income' ? "bg-green-100/80 text-green-800" : "bg-red-100/80 text-red-800"
+                                            t.type === 'income' ? "bg-green-100/80 text-green-800" :
+                                            t.type === 'lent' ? "bg-amber-100/80 text-amber-800" :
+                                            "bg-red-100/80 text-red-800"
                                         )}>
-                                            {t.type === 'income' ? <ArrowDownCircle className="w-4 h-4" /> : <ArrowUpCircle className="w-4 h-4" />}
+                                            {t.type === 'income' ? <ArrowDownCircle className="w-4 h-4" /> :
+                                             t.type === 'lent' ? <HandCoins className="w-4 h-4" /> :
+                                             <ArrowUpCircle className="w-4 h-4" />}
                                         </div>
                                         <div>
                                             <div className="font-bold text-nature-900 text-sm font-serif">{t.name || t.category}</div>
                                             <div className="text-[10px] text-nature-700 flex items-center gap-1 flex-wrap mt-0.5">
-                                                <span className="bg-nature-50/80 text-nature-800 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider border border-nature-200">{t.category}</span>
+                                                <span className={cn(
+                                                    "px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider border",
+                                                    t.type === 'lent'
+                                                        ? "bg-amber-50/80 text-amber-700 border-amber-200"
+                                                        : "bg-nature-50/80 text-nature-800 border-nature-200"
+                                                )}>
+                                                    {t.type === 'lent' ? `Lent to ${t.personName}` : t.category}
+                                                </span>
                                                 <span className="uppercase bg-white/50 text-nature-800 px-1.5 py-0.5 rounded-md font-bold tracking-wider border border-nature-200">{t.paymentMode || 'UPI'}</span>
-                                                <span className="font-medium">• {new Date(t.date).toLocaleDateString('en-US', { day: 'numeric' })} • {new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                <span className="font-medium">{' \u2022 '}{new Date(t.date).toLocaleDateString('en-US', { day: 'numeric' })} {' \u2022 '}{new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                             {t.note && <div className="text-[10px] text-nature-600 mt-0.5 italic">"{t.note}"</div>}
                                         </div>
@@ -55,9 +66,11 @@ export default function History() {
                                     <div className="flex flex-col items-end gap-1">
                                         <div className={cn(
                                             "font-bold text-sm font-serif",
-                                            t.type === 'income' ? "text-green-700" : "text-red-800"
+                                            t.type === 'income' ? "text-green-700" :
+                                            t.type === 'lent' ? "text-amber-700" :
+                                            "text-red-800"
                                         )}>
-                                            {t.type === 'income' ? '+' : '-'}₹{t.amount.toFixed(2)}
+                                            {t.type === 'income' ? '+' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
                                         </div>
                                         <button
                                             onClick={() => setTransactionToDelete(t)}
@@ -78,7 +91,7 @@ export default function History() {
                 onClose={() => setTransactionToDelete(null)}
                 onConfirm={() => deleteTransaction(transactionToDelete.id)}
                 title="Delete Record"
-                message={`Are you sure you want to delete this ${transactionToDelete?.type === 'income' ? 'income' : 'expense'} of ₹${transactionToDelete?.amount?.toFixed(2)}?`}
+                message={`Are you sure you want to delete this ${transactionToDelete?.type === 'lent' ? 'lending' : transactionToDelete?.type === 'income' ? 'income' : 'expense'} of ${'\u20B9'}${transactionToDelete?.amount?.toFixed(2)}?`}
                 confirmText="Delete"
                 isDestructive={true}
             />
