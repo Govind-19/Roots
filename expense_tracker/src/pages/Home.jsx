@@ -1,9 +1,9 @@
 import { useExpenses } from '../context/ExpenseContext';
-import { ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, Users, HandCoins } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Home({ setActiveTab }) {
-    const { balance, income, expense, transactions } = useExpenses();
+    const { currentMonth, totalOutstanding, transactions } = useExpenses();
 
     const recentTransactions = transactions.slice(0, 5);
 
@@ -30,27 +30,53 @@ export default function Home({ setActiveTab }) {
                         <Wallet className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-medium tracking-wider uppercase">Total Stash</span>
                     </div>
-                    <div className="text-3xl font-serif font-bold mb-4">
-                        ₹{balance.toFixed(2)}
+                    <div className="text-3xl font-serif font-bold mb-1">
+                        {'\u20B9'}{currentMonth.balance.toFixed(2)}
                     </div>
-                    <div className="flex justify-between gap-3">
+                    {currentMonth.carryOver !== 0 && (
+                        <div className="text-[10px] text-nature-100/50 mb-3">
+                            Carry-over: {'\u20B9'}{currentMonth.carryOver.toFixed(2)}
+                        </div>
+                    )}
+                    <div className="flex justify-between gap-3 mt-3">
                         <div className="flex-1 bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/10">
                             <div className="flex items-center gap-1.5 mb-0.5">
                                 <ArrowDownCircle className="w-3 h-3 text-green-300" />
                                 <span className="text-[9px] text-nature-100/70 uppercase tracking-wide">Income</span>
                             </div>
-                            <div className="font-semibold text-sm">₹{income.toFixed(2)}</div>
+                            <div className="font-semibold text-sm">{'\u20B9'}{currentMonth.income.toFixed(2)}</div>
                         </div>
                         <div className="flex-1 bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/10">
                             <div className="flex items-center gap-1.5 mb-0.5">
                                 <ArrowUpCircle className="w-3 h-3 text-red-300" />
                                 <span className="text-[9px] text-nature-100/70 uppercase tracking-wide">Expense</span>
                             </div>
-                            <div className="font-semibold text-sm">₹{expense.toFixed(2)}</div>
+                            <div className="font-semibold text-sm">{'\u20B9'}{currentMonth.expenses.toFixed(2)}</div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Outstanding Loans Card */}
+            {totalOutstanding > 0 && (
+                <button
+                    onClick={() => setActiveTab('people')}
+                    className="w-full bg-amber-50/80 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between border border-amber-200/50 hover:shadow-md transition-all text-left"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100/80 flex items-center justify-center">
+                            <HandCoins className="w-5 h-5 text-amber-700" />
+                        </div>
+                        <div>
+                            <div className="text-xs font-bold text-amber-800 uppercase tracking-wider">Outstanding Loans</div>
+                            <div className="text-sm text-amber-600">Money owed to you</div>
+                        </div>
+                    </div>
+                    <div className="font-bold text-lg font-serif text-amber-800">
+                        {'\u20B9'}{totalOutstanding.toFixed(2)}
+                    </div>
+                </button>
+            )}
 
             {/* Recent Transactions */}
             <div>
@@ -62,7 +88,9 @@ export default function Home({ setActiveTab }) {
                 <div className="space-y-2.5">
                     {recentTransactions.length === 0 ? (
                         <div className="text-center py-10 text-nature-700 bg-white/40 backdrop-blur-sm rounded-3xl border-2 border-dashed border-nature-200">
-                            <div className="text-3xl mb-2 opacity-50">🍃</div>
+                            <div className="text-3xl mb-2 opacity-50">
+                                <span className="text-2xl">{'\\ud83c\\udf43'}</span>
+                            </div>
                             <span className="text-sm">No tracks found yet</span>
                         </div>
                     ) : (
@@ -71,20 +99,30 @@ export default function Home({ setActiveTab }) {
                                 <div className="flex items-center gap-3">
                                     <div className={cn(
                                         "w-10 h-10 rounded-xl flex items-center justify-center shadow-inner",
-                                        t.type === 'income' ? "bg-green-100/80 text-green-800" : "bg-red-100/80 text-red-800"
+                                        t.type === 'income' ? "bg-green-100/80 text-green-800" :
+                                        t.type === 'lent' ? "bg-amber-100/80 text-amber-800" :
+                                        "bg-red-100/80 text-red-800"
                                     )}>
-                                        {t.type === 'income' ? <ArrowDownCircle className="w-4 h-4" /> : <ArrowUpCircle className="w-4 h-4" />}
+                                        {t.type === 'income' ? <ArrowDownCircle className="w-4 h-4" /> :
+                                         t.type === 'lent' ? <HandCoins className="w-4 h-4" /> :
+                                         <ArrowUpCircle className="w-4 h-4" />}
                                     </div>
                                     <div>
                                         <div className="font-bold text-nature-900 text-sm font-serif">{t.name || t.category}</div>
-                                        <div className="text-[10px] text-nature-700 font-medium">{t.category} • {new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                                        <div className="text-[10px] text-nature-700 font-medium">
+                                            {t.type === 'lent' ? `Lent to ${t.personName}` : t.category} {' \u2022 '}
+                                            {new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {' \u2022 '}
+                                            {new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className={cn(
                                     "font-bold text-sm",
-                                    t.type === 'income' ? "text-green-700" : "text-red-800"
+                                    t.type === 'income' ? "text-green-700" :
+                                    t.type === 'lent' ? "text-amber-700" :
+                                    "text-red-800"
                                 )}>
-                                    {t.type === 'income' ? '+' : '-'}₹{t.amount.toFixed(2)}
+                                    {t.type === 'income' ? '+' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
                                 </div>
                             </div>
                         ))

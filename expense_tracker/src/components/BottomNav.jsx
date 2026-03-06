@@ -1,11 +1,12 @@
-import { Home, PieChart, History } from 'lucide-react';
+import { Home, PieChart, History, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function BottomNav({ activeTab, setActiveTab }) {
     const navItems = [
         { id: 'home', icon: Home, label: 'Home' },
-        { id: 'analytics', icon: PieChart, label: 'Analytics' },
+        { id: 'analytics', icon: PieChart, label: 'Insights' },
         { id: 'history', icon: History, label: 'History' },
+        { id: 'people', icon: Users, label: 'Pack' },
     ];
 
     return (

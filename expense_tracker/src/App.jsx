@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import Analytics from './pages/Analytics';
 import History from './pages/History';
+import People from './pages/People';
 import AddTransactionForm from './components/AddTransactionForm';
 
 function AppContent() {
@@ -97,6 +98,7 @@ function AppContent() {
       case 'home': return <Home setActiveTab={setActiveTab} />;
       case 'analytics': return <Analytics />;
       case 'history': return <History />;
+      case 'people': return <People />;
       default: return <Home setActiveTab={setActiveTab} />;
     }
   };
