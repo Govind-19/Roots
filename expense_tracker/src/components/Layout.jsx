@@ -58,14 +58,14 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
     const accentHover = isWarning ? 'hover:bg-[var(--theme-accent-900)]' : 'hover:bg-nature-900';
 
     const miniButtons = [
-        { type: 'expense', label: 'Expense', icon: ArrowUpCircle, color: 'bg-red-500', x: -56, y: -68 },
-        { type: 'income', label: 'Income', icon: ArrowDownCircle, color: 'bg-green-600', x: 0, y: -82 },
-        { type: 'lent', label: 'Lent', icon: HandCoins, color: 'bg-amber-500', x: 56, y: -68 },
+        { type: 'expense', label: 'Expense', icon: ArrowUpCircle, color: 'bg-red-500', x: -85, y: -45 },
+        { type: 'income', label: 'Income', icon: ArrowDownCircle, color: 'bg-green-600', x: -40, y: -85 },
+        { type: 'lent', label: 'Lent', icon: HandCoins, color: 'bg-amber-500', x: 10, y: -45 },
     ];
 
     return (
         <div className="h-[100dvh] w-full flex justify-center bg-[#1a1a1a]">
-            <div className="w-full max-w-md h-full bg-cream shadow-2xl relative flex flex-col overflow-hidden">
+            <div className="w-full max-w-md h-full bg-cream shadow-2xl relative flex flex-col">
                 {/* Elegant Background Pattern */}
                 <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,#d4c5b0,transparent_70%)]"></div>
@@ -79,20 +79,18 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
 
                 {/* FAB Zone */}
                 <div className="fab-zone absolute bottom-24 right-6 z-50">
-                    {/* Expanded mini-buttons */}
+                    {/* Expanded mini-buttons - positioned relative to FAB center */}
                     {fabExpanded && (
-                        <>
+                        <div className="absolute inset-0 flex items-center justify-center">
                             {/* Overlay for dimming */}
-                            <div className="fixed inset-0 bg-black/20 -z-10" />
+                            <div className="fixed inset-0 bg-black/20" style={{ zIndex: -1 }} />
                             {miniButtons.map((btn, i) => (
                                 <button
                                     key={btn.type}
                                     onClick={() => handleMiniSelect(btn.type)}
                                     className="absolute flex flex-col items-center gap-1 animate-fab-pop"
                                     style={{
-                                        bottom: '100%',
-                                        right: '50%',
-                                        transform: `translate(${-btn.x}px, ${btn.y}px)`,
+                                        transform: `translate(${btn.x}px, ${btn.y}px)`,
                                         animationDelay: `${i * 0.06}s`,
                                         animationFillMode: 'both',
                                     }}
@@ -105,7 +103,7 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
                                     </span>
                                 </button>
                             ))}
-                        </>
+                        </div>
                     )}
 
                     {/* Main FAB */}
