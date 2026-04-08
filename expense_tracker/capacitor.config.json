@@ -1,5 +1,17 @@
 {
   "appId": "com.example.appag",
   "appName": "AppAG",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://YOUR_APP.vercel.app",
+    "cleartext": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": [
+        "google.com"
+      ]
+    }
+  }
 }
