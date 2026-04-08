@@ -44,6 +44,7 @@ export function ExpenseProvider({ children }) {
     const [repayments, setRepayments] = useState(cached?.repayments || []);
     const [budgetLimits, setBudgetLimits] = useState(cached?.budgetLimits || {});
     const [recurringItems, setRecurringItems] = useState(cached?.recurringItems || []);
+    const [borrowedRepayments, setBorrowedRepayments] = useState(cached?.borrowedRepayments || []);
     const [dataLoaded, setDataLoaded] = useState(!!cached);
 
     // Helper to get Firestore doc ref for the user
@@ -62,12 +63,13 @@ export function ExpenseProvider({ children }) {
                 repayments: data.repayments ?? repayments,
                 budgetLimits: data.budgetLimits ?? budgetLimits,
                 recurringItems: data.recurringItems ?? recurringItems,
+                borrowedRepayments: data.borrowedRepayments ?? borrowedRepayments,
                 updatedAt: new Date().toISOString(),
             }, { merge: true });
         } catch (err) {
             console.error('Error saving to Firestore:', err);
         }
-    }, [getUserDocRef, transactions, repayments, budgetLimits, recurringItems]);
+    }, [getUserDocRef, transactions, repayments, budgetLimits, recurringItems, borrowedRepayments]);
 
     // Load data from Firestore on login, migrate localStorage data if present
     useEffect(() => {
@@ -76,6 +78,7 @@ export function ExpenseProvider({ children }) {
             setRepayments([]);
             setBudgetLimits({});
             setRecurringItems([]);
+            setBorrowedRepayments([]);
             setDataLoaded(false);
             return;
         }
@@ -87,6 +90,7 @@ export function ExpenseProvider({ children }) {
             setRepayments(cachedData.repayments || []);
             setBudgetLimits(cachedData.budgetLimits || {});
             setRecurringItems(cachedData.recurringItems || []);
+            setBorrowedRepayments(cachedData.borrowedRepayments || []);
             setDataLoaded(true);
         }
 
@@ -99,11 +103,13 @@ export function ExpenseProvider({ children }) {
                 setRepayments(data.repayments || []);
                 setBudgetLimits(data.budgetLimits || {});
                 setRecurringItems(data.recurringItems || []);
+                setBorrowedRepayments(data.borrowedRepayments || []);
                 saveCacheData(user.uid, {
                     transactions: data.transactions || [],
                     repayments: data.repayments || [],
                     budgetLimits: data.budgetLimits || {},
                     recurringItems: data.recurringItems || [],
+                    borrowedRepayments: data.borrowedRepayments || [],
                 });
             } else {
                 // First login - migrate localStorage data if available
@@ -117,6 +123,7 @@ export function ExpenseProvider({ children }) {
                     repayments: localRep ? JSON.parse(localRep) : [],
                     budgetLimits: localBudget ? JSON.parse(localBudget) : {},
                     recurringItems: localRecurring ? JSON.parse(localRecurring) : [],
+                    borrowedRepayments: [],
                     updatedAt: new Date().toISOString(),
                 };
 
@@ -125,6 +132,7 @@ export function ExpenseProvider({ children }) {
                 setRepayments(migrated.repayments);
                 setBudgetLimits(migrated.budgetLimits);
                 setRecurringItems(migrated.recurringItems);
+                setBorrowedRepayments([]);
 
                 // Clear localStorage after migration
                 if (localTx || localRep || localBudget || localRecurring) {
@@ -236,6 +244,22 @@ export function ExpenseProvider({ children }) {
         setRepayments(prev => {
             const updated = prev.filter(r => r.id !== id);
             saveToFirestore({ repayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
+    const addBorrowedRepayment = useCallback((repayment) => {
+        setBorrowedRepayments(prev => {
+            const updated = [{ id: crypto.randomUUID(), date: new Date().toISOString(), ...repayment }, ...prev];
+            saveToFirestore({ borrowedRepayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
+    const deleteBorrowedRepayment = useCallback((id) => {
+        setBorrowedRepayments(prev => {
+            const updated = prev.filter(r => r.id !== id);
+            saveToFirestore({ borrowedRepayments: updated });
             return updated;
         });
     }, [saveToFirestore]);
@@ -391,6 +415,44 @@ export function ExpenseProvider({ children }) {
         peopleData.reduce((sum, p) => sum + Math.max(0, p.outstanding), 0),
         [peopleData]);
 
+    const borrowedData = useMemo(() => {
+        const borrowedTransactions = transactions.filter(t => t.type === 'borrowed');
+        const peopleMap = {};
+
+        borrowedTransactions.forEach(t => {
+            const name = (t.personName || '').trim().toLowerCase();
+            if (!name) return;
+            if (!peopleMap[name]) {
+                peopleMap[name] = {
+                    name: t.personName.trim(),
+                    transactions: [],
+                    repayments: [],
+                    totalBorrowed: 0,
+                    totalRepaid: 0,
+                };
+            }
+            peopleMap[name].transactions.push(t);
+            peopleMap[name].totalBorrowed += t.amount;
+        });
+
+        borrowedRepayments.forEach(r => {
+            const name = (r.personName || '').trim().toLowerCase();
+            if (!name || !peopleMap[name]) return;
+            peopleMap[name].repayments.push(r);
+            peopleMap[name].totalRepaid += r.amount;
+        });
+
+        return Object.values(peopleMap).map(p => ({
+            ...p,
+            outstanding: p.totalBorrowed - p.totalRepaid,
+            isSettled: p.totalRepaid >= p.totalBorrowed,
+        })).sort((a, b) => b.outstanding - a.outstanding);
+    }, [transactions, borrowedRepayments]);
+
+    const totalOwed = useMemo(() =>
+        borrowedData.reduce((sum, p) => sum + Math.max(0, p.outstanding), 0),
+        [borrowedData]);
+
     return (
         <ExpenseContext.Provider value={{
             transactions,
@@ -400,6 +462,10 @@ export function ExpenseProvider({ children }) {
             updateTransaction,
             addRepayment,
             deleteRepayment,
+            addBorrowedRepayment,
+            deleteBorrowedRepayment,
+            borrowedData,
+            totalOwed,
             balance,
             income,
             expense,

@@ -1,5 +1,5 @@
 import { useExpenses } from '../context/ExpenseContext';
-import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil } from 'lucide-react';
+import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil, Landmark } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState, useMemo } from 'react';
 import ConfirmationDialog from '../components/ConfirmationDialog';
@@ -108,7 +108,7 @@ export default function History() {
                 {/* Filter Chips */}
                 <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
                     {/* Type filters */}
-                    {['all', 'expense', 'income', 'lent'].map(t => (
+                    {['all', 'expense', 'income', 'lent', 'borrowed'].map(t => (
                         <button
                             key={t}
                             onClick={() => setFilterType(t)}
@@ -253,6 +253,7 @@ export default function History() {
                                         "flex justify-between items-center bg-white/60 backdrop-blur-md p-3.5 rounded-2xl shadow-sm hover:shadow-md transition-all group animate-item-in",
                                         t.type === 'expense' ? 'border-l-4 border-l-red-400 border border-white/50' :
                                         t.type === 'income' ? 'border-l-4 border-l-green-400 border border-white/50' :
+                                        t.type === 'borrowed' ? 'border-l-4 border-l-blue-400 border border-white/50' :
                                         'border-l-4 border-l-amber-400 border border-white/50'
                                     )}
                                     style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'both' }}
@@ -262,10 +263,12 @@ export default function History() {
                                             "w-10 h-10 rounded-xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110",
                                             t.type === 'income' ? "bg-green-100/80 text-green-800" :
                                             t.type === 'lent' ? "bg-amber-100/80 text-amber-800" :
+                                            t.type === 'borrowed' ? "bg-blue-100/80 text-blue-800" :
                                             "bg-red-100/80 text-red-800"
                                         )}>
                                             {t.type === 'income' ? <ArrowDownCircle className="w-4 h-4" /> :
                                              t.type === 'lent' ? <HandCoins className="w-4 h-4" /> :
+                                             t.type === 'borrowed' ? <Landmark className="w-4 h-4" /> :
                                              <ArrowUpCircle className="w-4 h-4" />}
                                         </div>
                                         <div>
@@ -276,11 +279,13 @@ export default function History() {
                                             <div className="text-[10px] text-nature-700 flex items-center gap-1 flex-wrap mt-0.5">
                                                 <span className={cn(
                                                     "px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider border",
-                                                    t.type === 'lent'
-                                                        ? "bg-amber-50/80 text-amber-700 border-amber-200"
-                                                        : "bg-nature-50/80 text-nature-800 border-nature-200"
+                                                    t.type === 'lent' ? "bg-amber-50/80 text-amber-700 border-amber-200" :
+                                                    t.type === 'borrowed' ? "bg-blue-50/80 text-blue-700 border-blue-200" :
+                                                    "bg-nature-50/80 text-nature-800 border-nature-200"
                                                 )}>
-                                                    {t.type === 'lent' ? `Lent \u2192 ${t.personName}` : t.category}
+                                                    {t.type === 'lent' ? `Lent \u2192 ${t.personName}` :
+                                                     t.type === 'borrowed' ? `Borrowed \u2190 ${t.personName}` :
+                                                     t.category}
                                                 </span>
                                                 <span className="uppercase bg-white/50 text-nature-800 px-1.5 py-0.5 rounded-md font-bold tracking-wider border border-nature-200">{t.paymentMode || 'UPI'}</span>
                                                 <span className="font-medium">{' \u2022 '}{new Date(t.date).toLocaleDateString('en-US', { day: 'numeric' })} {' \u2022 '}{new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -293,9 +298,10 @@ export default function History() {
                                             "font-bold text-sm font-serif",
                                             t.type === 'income' ? "text-green-700" :
                                             t.type === 'lent' ? "text-amber-700" :
+                                            t.type === 'borrowed' ? "text-blue-700" :
                                             "text-red-800"
                                         )}>
-                                            {t.type === 'income' ? '+' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
+                                            {t.type === 'income' ? '+' : t.type === 'borrowed' ? '' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button
