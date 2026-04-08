@@ -3,7 +3,7 @@
   "appName": "AppAG",
   "webDir": "dist",
   "server": {
-    "url": "https://YOUR_APP.vercel.app",
+    "url": "https://expensetracker-seven-zeta.vercel.app",
     "cleartext": false
   },
   "plugins": {
