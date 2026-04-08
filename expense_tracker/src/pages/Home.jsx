@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
 import { useAuth } from '../context/AuthContext';
-import { ArrowUpCircle, ArrowDownCircle, Wallet, HandCoins, Repeat, LogOut } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Wallet, HandCoins, Repeat, LogOut, Landmark } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useCountUp } from '../hooks/useCountUp';
 
 export default function Home({ setActiveTab }) {
-    const { currentMonth, totalOutstanding, transactions, isWarning } = useExpenses();
+    const { currentMonth, totalOutstanding, totalOwed, transactions, isWarning } = useExpenses();
     const { user, logout } = useAuth();
     const [showLogout, setShowLogout] = useState(false);
 
@@ -103,6 +103,27 @@ export default function Home({ setActiveTab }) {
                     </div>
                 </div>
             </div>
+
+            {/* I Owe Card */}
+            {totalOwed > 0 && (
+                <button
+                    onClick={() => setActiveTab('people')}
+                    className="w-full bg-blue-50/80 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between border border-blue-200/50 hover:shadow-md transition-all text-left"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100/80 flex items-center justify-center">
+                            <Landmark className="w-5 h-5 text-blue-700" />
+                        </div>
+                        <div>
+                            <div className="text-xs font-bold text-blue-800 uppercase tracking-wider">I Owe</div>
+                            <div className="text-sm text-blue-600">Money you need to repay</div>
+                        </div>
+                    </div>
+                    <div className="font-bold text-lg font-serif text-blue-800">
+                        {'\u20B9'}{totalOwed.toFixed(2)}
+                    </div>
+                </button>
+            )}
 
             {/* Outstanding Loans Card */}
             {totalOutstanding > 0 && (

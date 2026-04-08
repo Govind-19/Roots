@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ArrowUpCircle, ArrowDownCircle, HandCoins, Repeat } from 'lucide-react';
+import { X, ArrowUpCircle, ArrowDownCircle, HandCoins, Repeat, Landmark } from 'lucide-react';
 import { useExpenses } from '../context/ExpenseContext';
 
 export default function AddTransactionForm({ onClose, initialType = 'expense', transaction = null }) {
@@ -38,14 +38,16 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!amount) return;
-        if (type === 'lent' && !personName.trim()) return;
-        if (type !== 'lent' && !category) return;
+        if ((type === 'lent' || type === 'borrowed') && !personName.trim()) return;
+        if (type !== 'lent' && type !== 'borrowed' && !category) return;
 
         const fields = {
-            name: type === 'lent' ? (name || `Lent to ${personName.trim()}`) : (name || category),
+            name: type === 'lent' ? (name || `Lent to ${personName.trim()}`) :
+                  type === 'borrowed' ? (name || `Borrowed from ${personName.trim()}`) :
+                  (name || category),
             amount: parseFloat(amount),
             type,
-            category: type === 'lent' ? 'Lent' : category,
+            category: type === 'lent' ? 'Lent' : type === 'borrowed' ? 'Borrowed' : category,
             paymentMode,
             date,
             note,
@@ -140,6 +142,16 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
                         >
                             <HandCoins className="w-3.5 h-3.5" /> Lent
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setType('borrowed')}
+                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${type === 'borrowed'
+                                ? 'bg-white text-blue-700 shadow-md ring-1 ring-black/5'
+                                : 'text-nature-700 hover:bg-nature-200/50'
+                                }`}
+                        >
+                            <Landmark className="w-3.5 h-3.5" /> Borrowed
+                        </button>
                     </div>
 
                     <div>
@@ -157,7 +169,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
                         </div>
                     </div>
 
-                    {type === 'lent' && (
+                    {(type === 'lent' || type === 'borrowed') && (
                         <div>
                             <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Person Name</label>
                             <input
@@ -165,7 +177,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
                                 value={personName}
                                 onChange={(e) => setPersonName(e.target.value)}
                                 className="w-full px-5 py-3 bg-white border-2 border-sand rounded-xl focus:ring-4 focus:ring-nature-100 focus:border-nature-800 transition-all font-medium text-nature-900 placeholder:text-nature-300"
-                                placeholder="Who are you lending to?"
+                                placeholder={type === 'lent' ? 'Who are you lending to?' : 'Who are you borrowing from?'}
                                 required
                             />
                         </div>
@@ -173,7 +185,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
 
                     <div>
                         <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">
-                            {type === 'lent' ? 'Description' : 'Name'}
+                            {(type === 'lent' || type === 'borrowed') ? 'Description' : 'Name'}
                         </label>
                         <input
                             type="text"
@@ -184,7 +196,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
                         />
                     </div>
 
-                    {type !== 'lent' && (
+                    {type !== 'lent' && type !== 'borrowed' && (
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Category</label>
@@ -213,7 +225,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
                         </div>
                     )}
 
-                    {type === 'lent' && (
+                    {(type === 'lent' || type === 'borrowed') && (
                         <div>
                             <label className="block text-xs font-bold text-nature-800 uppercase tracking-wider mb-2 ml-1">Mode</label>
                             <select
@@ -289,12 +301,16 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
 
                     <button
                         type="submit"
-                        className={`w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all mt-4 theme-transition ${type === 'lent'
-                                ? 'bg-amber-700 text-cream shadow-amber-700/20 hover:bg-amber-800'
-                                : `${accentBg} text-cream shadow-nature-800/20 ${accentHover}`
-                            }`}
+                        className={`w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all mt-4 theme-transition ${
+                            type === 'lent' ? 'bg-amber-700 text-cream shadow-amber-700/20 hover:bg-amber-800' :
+                            type === 'borrowed' ? 'bg-blue-700 text-cream shadow-blue-700/20 hover:bg-blue-800' :
+                            `${accentBg} text-cream shadow-nature-800/20 ${accentHover}`
+                        }`}
                     >
-                        {isEditing ? 'Save Changes' : type === 'lent' ? 'Add to Ledger' : 'Add to Stash'}
+                        {isEditing ? 'Save Changes' :
+                         type === 'lent' ? 'Add to Ledger' :
+                         type === 'borrowed' ? 'Record Debt' :
+                         'Add to Stash'}
                     </button>
                 </form>
             </div>
