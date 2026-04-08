@@ -1,5 +1,17 @@
 {
   "appId": "com.example.appag",
   "appName": "AppAG",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://expensetracker-seven-zeta.vercel.app",
+    "cleartext": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": [
+        "google.com"
+      ]
+    }
+  }
 }
