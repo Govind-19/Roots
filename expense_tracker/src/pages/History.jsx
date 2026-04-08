@@ -1,12 +1,14 @@
 import { useExpenses } from '../context/ExpenseContext';
-import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play } from 'lucide-react';
+import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState, useMemo } from 'react';
 import ConfirmationDialog from '../components/ConfirmationDialog';
+import AddTransactionForm from '../components/AddTransactionForm';
 
 export default function History() {
     const { transactions, deleteTransaction, recurringItems, deleteRecurringItem, toggleRecurringPause } = useExpenses();
     const [transactionToDelete, setTransactionToDelete] = useState(null);
+    const [transactionToEdit, setTransactionToEdit] = useState(null);
     const [showRecurring, setShowRecurring] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
@@ -295,12 +297,20 @@ export default function History() {
                                         )}>
                                             {t.type === 'income' ? '+' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
                                         </div>
-                                        <button
-                                            onClick={() => setTransactionToDelete(t)}
-                                            className="p-2 text-nature-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setTransactionToEdit(t)}
+                                                className="p-2 text-nature-400 hover:text-nature-700 hover:bg-nature-100 rounded-full transition-colors"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setTransactionToDelete(t)}
+                                                className="p-2 text-nature-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -318,6 +328,13 @@ export default function History() {
                 confirmText="Delete"
                 isDestructive={true}
             />
+
+            {transactionToEdit && (
+                <AddTransactionForm
+                    transaction={transactionToEdit}
+                    onClose={() => setTransactionToEdit(null)}
+                />
+            )}
         </div>
     );
 }

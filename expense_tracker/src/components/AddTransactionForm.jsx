@@ -3,25 +3,32 @@ import { createPortal } from 'react-dom';
 import { X, ArrowUpCircle, ArrowDownCircle, HandCoins, Repeat } from 'lucide-react';
 import { useExpenses } from '../context/ExpenseContext';
 
-export default function AddTransactionForm({ onClose, initialType = 'expense' }) {
-    const { addTransaction, addRecurringItem, isWarning } = useExpenses();
-    const [type, setType] = useState(initialType);
-    const [name, setName] = useState('');
-    const [amount, setAmount] = useState('');
-    const [category, setCategory] = useState(initialType === 'income' ? 'Salary' : 'Bills');
-    const [paymentMode, setPaymentMode] = useState('upi');
-    const [personName, setPersonName] = useState('');
+export default function AddTransactionForm({ onClose, initialType = 'expense', transaction = null }) {
+    const { addTransaction, updateTransaction, addRecurringItem, isWarning } = useExpenses();
+    const isEditing = !!transaction;
+
+    const [type, setType] = useState(transaction?.type ?? initialType);
+    const [name, setName] = useState(transaction?.name ?? '');
+    const [amount, setAmount] = useState(transaction?.amount?.toString() ?? '');
+    const [category, setCategory] = useState(transaction?.category ?? (initialType === 'income' ? 'Salary' : 'Bills'));
+    const [paymentMode, setPaymentMode] = useState(transaction?.paymentMode ?? 'upi');
+    const [personName, setPersonName] = useState(transaction?.personName ?? '');
     const [isClosing, setIsClosing] = useState(false);
     const [isRecurring, setIsRecurring] = useState(false);
     const [frequency, setFrequency] = useState('monthly');
 
     const [date, setDate] = useState(() => {
+        if (transaction?.date) {
+            const d = new Date(transaction.date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        }
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         return now.toISOString().slice(0, 16);
     });
 
-    const [note, setNote] = useState('');
+    const [note, setNote] = useState(transaction?.note ?? '');
 
     const handleClose = useCallback(() => {
         setIsClosing(true);
@@ -34,7 +41,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
         if (type === 'lent' && !personName.trim()) return;
         if (type !== 'lent' && !category) return;
 
-        const transaction = {
+        const fields = {
             name: type === 'lent' ? (name || `Lent to ${personName.trim()}`) : (name || category),
             amount: parseFloat(amount),
             type,
@@ -42,25 +49,25 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
             paymentMode,
             date,
             note,
-            ...(isRecurring ? { recurring: true, frequency } : {}),
+            ...(type === 'lent' ? { personName: personName.trim() } : {}),
         };
 
-        if (type === 'lent') {
-            transaction.personName = personName.trim();
-        }
+        if (isEditing) {
+            updateTransaction(transaction.id, fields);
+        } else {
+            addTransaction({ ...fields, ...(isRecurring ? { recurring: true, frequency } : {}) });
 
-        addTransaction(transaction);
-
-        if (isRecurring) {
-            addRecurringItem({
-                name: transaction.name,
-                amount: transaction.amount,
-                type: transaction.type,
-                category: transaction.category,
-                paymentMode: transaction.paymentMode,
-                frequency,
-                ...(transaction.personName ? { personName: transaction.personName } : {}),
-            });
+            if (isRecurring) {
+                addRecurringItem({
+                    name: fields.name,
+                    amount: fields.amount,
+                    type: fields.type,
+                    category: fields.category,
+                    paymentMode: fields.paymentMode,
+                    frequency,
+                    ...(fields.personName ? { personName: fields.personName } : {}),
+                });
+            }
         }
 
         handleClose();
@@ -85,13 +92,16 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
             {/* Backdrop */}
             <div
                 className={`absolute inset-0 bg-nature-900/60 backdrop-blur-sm ${isClosing ? 'animate-backdrop-out' : 'animate-backdrop-in'}`}
-                onClick={handleClose}
+                onPointerDown={handleClose}
             />
 
             {/* Modal Content */}
-            <div className={`relative z-10 bg-cream w-full max-w-sm rounded-[1.5rem] p-5 shadow-2xl border border-sand max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-modal-down' : 'animate-modal-up'}`}>
+            <div
+                className={`relative z-10 bg-cream w-full max-w-sm rounded-[1.5rem] p-5 shadow-2xl border border-sand max-h-[90vh] overflow-y-auto ${isClosing ? 'animate-modal-down' : 'animate-modal-up'}`}
+                onPointerDown={(e) => e.stopPropagation()}
+            >
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-serif font-bold text-nature-900">New Track</h2>
+                    <h2 className="text-2xl font-serif font-bold text-nature-900">{isEditing ? 'Edit Track' : 'New Track'}</h2>
                     <button onClick={handleClose} className="p-2 hover:bg-nature-100 rounded-full transition-colors">
                         <X className="w-6 h-6 text-nature-800" />
                     </button>
@@ -106,7 +116,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
                             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${type === 'expense'
                                 ? 'bg-white text-red-700 shadow-md ring-1 ring-black/5'
                                 : 'text-nature-700 hover:bg-nature-200/50'
-                            }`}
+                                }`}
                         >
                             <ArrowUpCircle className="w-3.5 h-3.5" /> Expense
                         </button>
@@ -116,7 +126,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
                             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${type === 'income'
                                 ? 'bg-white text-green-700 shadow-md ring-1 ring-black/5'
                                 : 'text-nature-700 hover:bg-nature-200/50'
-                            }`}
+                                }`}
                         >
                             <ArrowDownCircle className="w-3.5 h-3.5" /> Income
                         </button>
@@ -126,7 +136,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
                             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${type === 'lent'
                                 ? 'bg-white text-amber-700 shadow-md ring-1 ring-black/5'
                                 : 'text-nature-700 hover:bg-nature-200/50'
-                            }`}
+                                }`}
                         >
                             <HandCoins className="w-3.5 h-3.5" /> Lent
                         </button>
@@ -142,7 +152,6 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
                                 onChange={(e) => setAmount(e.target.value)}
                                 className="w-full pl-10 pr-5 py-3 bg-white border-2 border-sand rounded-xl focus:ring-4 focus:ring-nature-100 focus:border-nature-800 transition-all text-xl font-serif font-bold text-nature-900 placeholder:text-nature-200"
                                 placeholder="0.00"
-                                autoFocus
                                 required
                             />
                         </div>
@@ -242,47 +251,50 @@ export default function AddTransactionForm({ onClose, initialType = 'expense' })
                     </div>
 
                     {/* Recurring Toggle */}
-                    <div className="flex items-center justify-between bg-nature-100/30 p-3.5 rounded-2xl border border-nature-100/50">
-                        <div className="flex items-center gap-2.5">
-                            <Repeat className="w-4 h-4 text-nature-700" />
-                            <span className="text-sm font-bold text-nature-800">Recurring</span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setIsRecurring(!isRecurring)}
-                            className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-nature-800' : 'bg-sand'}`}
-                        >
-                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
-
-                    {isRecurring && (
-                        <div className="flex gap-2">
-                            {['daily', 'weekly', 'monthly'].map(f => (
+                    {!isEditing && (
+                        <>
+                            <div className="flex items-center justify-between bg-nature-100/30 p-3.5 rounded-2xl border border-nature-100/50">
+                                <div className="flex items-center gap-2.5">
+                                    <Repeat className="w-4 h-4 text-nature-700" />
+                                    <span className="text-sm font-bold text-nature-800">Recurring</span>
+                                </div>
                                 <button
-                                    key={f}
                                     type="button"
-                                    onClick={() => setFrequency(f)}
-                                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold capitalize transition-all ${frequency === f
-                                        ? 'bg-nature-800 text-cream shadow-md'
-                                        : 'bg-white text-nature-700 border border-sand hover:bg-nature-100/50'
-                                    }`}
+                                    onClick={() => setIsRecurring(!isRecurring)}
+                                    className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-nature-800' : 'bg-sand'}`}
                                 >
-                                    {f}
+                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>
-                            ))}
-                        </div>
+                            </div>
+
+                            {isRecurring && (
+                                <div className="flex gap-2">
+                                    {['daily', 'weekly', 'monthly'].map(f => (
+                                        <button
+                                            key={f}
+                                            type="button"
+                                            onClick={() => setFrequency(f)}
+                                            className={`flex-1 py-2.5 rounded-xl text-xs font-bold capitalize transition-all ${frequency === f
+                                                ? 'bg-nature-800 text-cream shadow-md'
+                                                : 'bg-white text-nature-700 border border-sand hover:bg-nature-100/50'
+                                                }`}
+                                        >
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
 
                     <button
                         type="submit"
-                        className={`w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all mt-4 theme-transition ${
-                            type === 'lent'
+                        className={`w-full py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all mt-4 theme-transition ${type === 'lent'
                                 ? 'bg-amber-700 text-cream shadow-amber-700/20 hover:bg-amber-800'
                                 : `${accentBg} text-cream shadow-nature-800/20 ${accentHover}`
-                        }`}
+                            }`}
                     >
-                        {type === 'lent' ? 'Add to Ledger' : 'Add to Stash'}
+                        {isEditing ? 'Save Changes' : type === 'lent' ? 'Add to Ledger' : 'Add to Stash'}
                     </button>
                 </form>
             </div>

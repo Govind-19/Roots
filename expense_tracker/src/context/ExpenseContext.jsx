@@ -24,13 +24,27 @@ function getTodayKey() {
     return new Date().toISOString().split('T')[0];
 }
 
+function loadCachedData(uid) {
+    try {
+        const raw = localStorage.getItem(`expenseCache_${uid}`);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function saveCacheData(uid, data) {
+    try {
+        localStorage.setItem(`expenseCache_${uid}`, JSON.stringify(data));
+    } catch { /* ignore quota errors */ }
+}
+
 export function ExpenseProvider({ children }) {
     const { user } = useAuth();
-    const [transactions, setTransactions] = useState([]);
-    const [repayments, setRepayments] = useState([]);
-    const [budgetLimits, setBudgetLimits] = useState({});
-    const [recurringItems, setRecurringItems] = useState([]);
-    const [dataLoaded, setDataLoaded] = useState(false);
+    const cached = user ? loadCachedData(user.uid) : null;
+    const [transactions, setTransactions] = useState(cached?.transactions || []);
+    const [repayments, setRepayments] = useState(cached?.repayments || []);
+    const [budgetLimits, setBudgetLimits] = useState(cached?.budgetLimits || {});
+    const [recurringItems, setRecurringItems] = useState(cached?.recurringItems || []);
+    const [dataLoaded, setDataLoaded] = useState(!!cached);
 
     // Helper to get Firestore doc ref for the user
     const getUserDocRef = useCallback(() => {
@@ -66,6 +80,16 @@ export function ExpenseProvider({ children }) {
             return;
         }
 
+        // If we have cached data, mark as loaded immediately
+        const cachedData = loadCachedData(user.uid);
+        if (cachedData) {
+            setTransactions(cachedData.transactions || []);
+            setRepayments(cachedData.repayments || []);
+            setBudgetLimits(cachedData.budgetLimits || {});
+            setRecurringItems(cachedData.recurringItems || []);
+            setDataLoaded(true);
+        }
+
         const ref = doc(db, 'users', user.uid);
 
         const unsubscribe = onSnapshot(ref, async (snapshot) => {
@@ -75,6 +99,12 @@ export function ExpenseProvider({ children }) {
                 setRepayments(data.repayments || []);
                 setBudgetLimits(data.budgetLimits || {});
                 setRecurringItems(data.recurringItems || []);
+                saveCacheData(user.uid, {
+                    transactions: data.transactions || [],
+                    repayments: data.repayments || [],
+                    budgetLimits: data.budgetLimits || {},
+                    recurringItems: data.recurringItems || [],
+                });
             } else {
                 // First login - migrate localStorage data if available
                 const localTx = localStorage.getItem('transactions');
@@ -181,6 +211,14 @@ export function ExpenseProvider({ children }) {
     const deleteTransaction = useCallback((id) => {
         setTransactions(prev => {
             const updated = prev.filter(t => t.id !== id);
+            saveToFirestore({ transactions: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
+    const updateTransaction = useCallback((id, fields) => {
+        setTransactions(prev => {
+            const updated = prev.map(t => t.id === id ? { ...t, ...fields } : t);
             saveToFirestore({ transactions: updated });
             return updated;
         });
@@ -359,6 +397,7 @@ export function ExpenseProvider({ children }) {
             repayments,
             addTransaction,
             deleteTransaction,
+            updateTransaction,
             addRepayment,
             deleteRepayment,
             balance,
