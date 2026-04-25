@@ -5,8 +5,31 @@ import BottomNav from './BottomNav';
 export default function Layout({ children, activeTab, setActiveTab, onAddTransaction, isWarning }) {
     const [fabExpanded, setFabExpanded] = useState(false);
     const [ripple, setRipple] = useState(false);
+    const [fabVisible, setFabVisible] = useState(true);
     const timerRef = useRef(null);
     const isLongPressRef = useRef(false);
+    const mainRef = useRef(null);
+    const lastScrollYRef = useRef(0);
+
+    useEffect(() => {
+        const el = mainRef.current;
+        if (!el) return;
+        const handleScroll = () => {
+            const currentY = el.scrollTop;
+            const delta = currentY - lastScrollYRef.current;
+            if (Math.abs(delta) < 8) return;
+            if (currentY < 80) {
+                setFabVisible(true);
+            } else if (delta > 0) {
+                setFabVisible(false);
+            } else {
+                setFabVisible(true);
+            }
+            lastScrollYRef.current = currentY;
+        };
+        el.addEventListener('scroll', handleScroll, { passive: true });
+        return () => el.removeEventListener('scroll', handleScroll);
+    }, []);
 
     const handleStart = useCallback((e) => {
         e.preventDefault();
@@ -73,12 +96,18 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
                 </div>
 
-                <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide">
+                <main ref={mainRef} className="flex-1 overflow-y-auto relative z-10 scrollbar-hide">
                     {children}
                 </main>
 
                 {/* FAB Zone */}
-                <div className="fab-zone absolute bottom-24 right-6 z-50">
+                <div
+                    className={`fab-zone absolute bottom-24 right-6 z-50 transition-all duration-300 ease-out ${
+                        fabVisible || fabExpanded
+                            ? 'opacity-100 translate-y-0'
+                            : 'opacity-0 translate-y-12 pointer-events-none'
+                    }`}
+                >
                     {/* Expanded mini-buttons - positioned relative to FAB center */}
                     {fabExpanded && (
                         <div className="absolute inset-0 flex items-center justify-center">
