@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ExpenseProvider, useExpenses } from './context/ExpenseContext';
+import { UndoToastProvider } from './context/UndoToastContext';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Analytics from './pages/Analytics';
@@ -200,7 +201,9 @@ function AuthenticatedApp() {
 
     return (
         <ExpenseProvider>
-            <AppContent />
+            <UndoToastProvider>
+                <AppContent />
+            </UndoToastProvider>
         </ExpenseProvider>
     );
 }

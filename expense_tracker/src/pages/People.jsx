@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
 import { Users, ChevronDown, CheckCircle2, Plus, Trash2, Landmark, ArrowDownCircle, HandCoins, CheckCheck } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency } from '../lib/utils';
 import ConfirmationDialog from '../components/ConfirmationDialog';
+import { useUndoToast } from '../context/UndoToastContext';
 
 function ExpandableSection({ isExpanded, children }) {
     const contentRef = useRef(null);
@@ -107,10 +108,10 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                 <div className="flex items-center gap-2">
                     <div className="text-right">
                         <div className={cn("font-bold text-sm font-serif", colors.amount)}>
-                            {person.isSettled ? 'Settled' : `₹${Math.max(0, person.outstanding).toFixed(2)}`}
+                            {person.isSettled ? 'Settled' : `${formatCurrency(Math.max(0, person.outstanding))}`}
                         </div>
                         {!person.isSettled && (
-                            <div className="text-[10px] text-nature-500">of ₹{person.totalBorrowed?.toFixed(2) ?? person.totalLent?.toFixed(2)}</div>
+                            <div className="text-[10px] text-nature-500">of {formatCurrency(person.totalBorrowed ?? person.totalLent ?? 0)}</div>
                         )}
                     </div>
                     <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
@@ -124,15 +125,15 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                     <div className="flex gap-2">
                         <div className={cn("flex-1 p-2.5 rounded-xl text-center", colors.statLent)}>
                             <div className={cn("text-[9px] uppercase tracking-wide font-bold", colors.statLentLabel)}>{lentLabel}</div>
-                            <div className="font-bold text-sm">₹{(person.totalBorrowed ?? person.totalLent ?? 0).toFixed(2)}</div>
+                            <div className="font-bold text-sm">{formatCurrency((person.totalBorrowed ?? person.totalLent ?? 0))}</div>
                         </div>
                         <div className="flex-1 bg-green-50/80 p-2.5 rounded-xl text-center">
                             <div className="text-[9px] text-green-600 uppercase tracking-wide font-bold">{repaidLabel}</div>
-                            <div className="font-bold text-sm text-green-800">₹{person.totalRepaid.toFixed(2)}</div>
+                            <div className="font-bold text-sm text-green-800">{formatCurrency(person.totalRepaid)}</div>
                         </div>
                         <div className="flex-1 bg-nature-50/80 p-2.5 rounded-xl text-center">
                             <div className="text-[9px] text-nature-600 uppercase tracking-wide font-bold">Pending</div>
-                            <div className="font-bold text-sm text-nature-800">₹{Math.max(0, person.outstanding).toFixed(2)}</div>
+                            <div className="font-bold text-sm text-nature-800">{formatCurrency(Math.max(0, person.outstanding))}</div>
                         </div>
                     </div>
 
@@ -171,10 +172,10 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                                             "font-bold",
                                             isRepayment ? "text-green-700" : colors.txAmount
                                         )}>
-                                            {isRepayment ? '+' : ''}₹{item.amount.toFixed(2)}
+                                            {isRepayment ? '+' : ''}{formatCurrency(item.amount)}
                                         </span>
                                         <button
-                                            onClick={() => onDeleteItem({ type: isRepayment ? 'repayment' : 'tx', id: item.id, amount: item.amount })}
+                                            onClick={() => onDeleteItem({ type: isRepayment ? 'repayment' : 'tx', record: item, amount: item.amount })}
                                             className="p-1 text-nature-300 hover:text-red-500 rounded-full transition-colors"
                                         >
                                             <Trash2 className="w-3 h-3" />
@@ -211,7 +212,7 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                                     <button
                                         onClick={handleSettleUp}
                                         className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-bold text-sm bg-green-700 text-white hover:bg-green-800 active:scale-95 transition-all whitespace-nowrap"
-                                        title={`Settle ₹${outstandingAmount.toFixed(2)}`}
+                                        title={`Settle ${formatCurrency(outstandingAmount)}`}
                                     >
                                         <CheckCheck className="w-4 h-4" /> Settle Up
                                     </button>
@@ -227,7 +228,7 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                 onClose={() => setShowSettleConfirm(false)}
                 onConfirm={confirmSettleUp}
                 title="Settle Up?"
-                message={`This will record a repayment of ₹${outstandingAmount.toFixed(2)} to ${person.name} and clear your outstanding balance.`}
+                message={`This will record a repayment of ${formatCurrency(outstandingAmount)} to ${person.name} and clear your outstanding balance.`}
                 confirmText="Settle"
             />
         </div>
@@ -236,9 +237,10 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
 
 export default function People() {
     const {
-        peopleData, totalOutstanding, addRepayment, deleteTransaction, deleteRepayment, isWarning,
-        borrowedData, totalOwed, addBorrowedRepayment, deleteBorrowedRepayment,
+        peopleData, totalOutstanding, addRepayment, deleteTransaction, restoreTransaction, deleteRepayment, restoreRepayment, isWarning,
+        borrowedData, totalOwed, addBorrowedRepayment, deleteBorrowedRepayment, restoreBorrowedRepayment,
     } = useExpenses();
+    const undoToast = useUndoToast();
     const [expandedPerson, setExpandedPerson] = useState(null);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [activeTab, setActiveTab] = useState('owed');
@@ -246,14 +248,34 @@ export default function People() {
     const cardBg = isWarning ? 'bg-[var(--theme-accent-900)]/90' : 'bg-nature-900/90';
     const cardBorder = isWarning ? 'border-[var(--theme-accent-700)]/50' : 'border-nature-700/50';
 
+    const cleanRecord = (r) => {
+        if (!r) return r;
+        const { _kind, ...rest } = r;
+        return rest;
+    };
+
     const handleDeleteLent = () => {
-        if (itemToDelete.type === 'tx') deleteTransaction(itemToDelete.id);
-        else deleteRepayment(itemToDelete.id);
+        const { type } = itemToDelete;
+        const record = cleanRecord(itemToDelete.record);
+        if (type === 'tx') {
+            deleteTransaction(record.id);
+            undoToast.show({ message: 'Lent record deleted', onUndo: () => restoreTransaction(record) });
+        } else {
+            deleteRepayment(record.id);
+            undoToast.show({ message: 'Repayment deleted', onUndo: () => restoreRepayment(record) });
+        }
     };
 
     const handleDeleteBorrowed = () => {
-        if (itemToDelete.type === 'tx') deleteTransaction(itemToDelete.id);
-        else deleteBorrowedRepayment(itemToDelete.id);
+        const { type } = itemToDelete;
+        const record = cleanRecord(itemToDelete.record);
+        if (type === 'tx') {
+            deleteTransaction(record.id);
+            undoToast.show({ message: 'Borrowed record deleted', onUndo: () => restoreTransaction(record) });
+        } else {
+            deleteBorrowedRepayment(record.id);
+            undoToast.show({ message: 'Repayment deleted', onUndo: () => restoreBorrowedRepayment(record) });
+        }
     };
 
     return (
@@ -269,13 +291,13 @@ export default function People() {
                     onClick={() => setActiveTab('owed')}
                     className={cn("flex-1 py-2.5 rounded-xl text-xs font-bold transition-all", activeTab === 'owed' ? 'bg-white text-amber-700 shadow-md' : 'text-nature-600 hover:bg-nature-200/50')}
                 >
-                    They owe me {totalOutstanding > 0 && `· ₹${totalOutstanding.toFixed(0)}`}
+                    They owe me {totalOutstanding > 0 && `· ${formatCurrency(totalOutstanding)}`}
                 </button>
                 <button
                     onClick={() => setActiveTab('iowe')}
                     className={cn("flex-1 py-2.5 rounded-xl text-xs font-bold transition-all", activeTab === 'iowe' ? 'bg-white text-blue-700 shadow-md' : 'text-nature-600 hover:bg-nature-200/50')}
                 >
-                    I owe {totalOwed > 0 && `· ₹${totalOwed.toFixed(0)}`}
+                    I owe {totalOwed > 0 && `· ${formatCurrency(totalOwed)}`}
                 </button>
             </div>
 
@@ -290,7 +312,7 @@ export default function People() {
                         </span>
                     </div>
                     <div className="text-3xl font-serif font-bold">
-                        ₹{(activeTab === 'owed' ? totalOutstanding : totalOwed).toFixed(2)}
+                        {formatCurrency((activeTab === 'owed' ? totalOutstanding : totalOwed))}
                     </div>
                     <div className="text-xs text-white/40 mt-1">
                         {activeTab === 'owed'
@@ -361,7 +383,7 @@ export default function People() {
                     setItemToDelete(null);
                 }}
                 title="Delete Record"
-                message={`Delete this ${itemToDelete?.type === 'tx' ? 'transaction' : 'repayment'} of ₹${itemToDelete?.amount?.toFixed(2)}?`}
+                message={`Delete this ${itemToDelete?.type === 'tx' ? 'transaction' : 'repayment'} of ${formatCurrency(itemToDelete?.amount ?? 0)}?`}
                 confirmText="Delete"
                 isDestructive={true}
             />

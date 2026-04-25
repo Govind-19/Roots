@@ -3,6 +3,7 @@ import { useExpenses } from '../context/ExpenseContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { AlertTriangle, TrendingUp, TrendingDown, HandCoins, ArrowRight, Download, Settings, X, PieChart as PieChartIcon } from 'lucide-react';
 import Toast from '../components/Toast';
+import { formatCurrency } from '../lib/utils';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -289,26 +290,26 @@ export default function Analytics() {
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3.5 border-l-4 border-l-red-400 border border-white/50">
                     <div className="text-[9px] text-nature-600 uppercase tracking-wider font-bold mb-1">Spent this month</div>
-                    <div className="font-bold text-lg font-serif text-nature-900">{'\u20B9'}{currentMonth.expenses.toFixed(0)}</div>
+                    <div className="font-bold text-lg font-serif text-nature-900">{formatCurrency(currentMonth.expenses)}</div>
                     <div className={`flex items-center gap-1 mt-1 text-[10px] font-bold ${spendingUp ? 'text-red-600' : 'text-green-600'}`}>
                         {spendingUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {'\u20B9'}{Math.abs(spendingDiff).toFixed(0)} vs {prevMonthName}
+                        {formatCurrency(Math.abs(spendingDiff))} vs {prevMonthName}
                     </div>
                 </div>
 
                 <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3.5 border-l-4 border-l-green-400 border border-white/50">
                     <div className="text-[9px] text-nature-600 uppercase tracking-wider font-bold mb-1">Income vs Spent</div>
-                    <div className="font-bold text-lg font-serif text-green-700">{'\u20B9'}{currentMonth.income.toFixed(0)}</div>
+                    <div className="font-bold text-lg font-serif text-green-700">{formatCurrency(currentMonth.income)}</div>
                     <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-nature-500">
                         <ArrowRight className="w-3 h-3" />
-                        {'\u20B9'}{currentMonth.expenses.toFixed(0)} spent
+                        {formatCurrency(currentMonth.expenses)} spent
                     </div>
                 </div>
 
                 <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3.5 border-l-4 border-l-blue-400 border border-white/50">
                     <div className="text-[9px] text-nature-600 uppercase tracking-wider font-bold mb-1">Carry-over</div>
                     <div className={`font-bold text-lg font-serif ${currentMonth.carryOver >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                        {'\u20B9'}{currentMonth.carryOver.toFixed(0)}
+                        {formatCurrency(currentMonth.carryOver)}
                     </div>
                     <div className="text-[10px] text-nature-400 mt-1">From previous months</div>
                 </div>
@@ -317,7 +318,7 @@ export default function Analytics() {
                     <div className="text-[9px] text-amber-700 uppercase tracking-wider font-bold mb-1 flex items-center gap-1">
                         <HandCoins className="w-3 h-3" /> Lent
                     </div>
-                    <div className="font-bold text-lg font-serif text-amber-800">{'\u20B9'}{currentMonth.lent.toFixed(0)}</div>
+                    <div className="font-bold text-lg font-serif text-amber-800">{formatCurrency(currentMonth.lent)}</div>
                     <div className="text-[10px] text-amber-500 mt-1">Not counted as expense</div>
                 </div>
             </div>
@@ -351,7 +352,7 @@ export default function Analytics() {
                         {highExpenses.map(t => (
                             <div key={t.id} className="flex justify-between items-center text-sm text-orange-900 bg-white p-3 rounded-xl shadow-sm border border-orange-100">
                                 <span className="font-medium">{t.name || t.category}</span>
-                                <span className="font-bold">{'\u20B9'}{t.amount.toFixed(2)}</span>
+                                <span className="font-bold">{formatCurrency(t.amount)}</span>
                             </div>
                         ))}
                     </div>
@@ -374,9 +375,9 @@ export default function Analytics() {
                                 tick={{ fill: '#8d6e63', fontSize: 11 }}
                                 dy={10}
                             />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(val) => `${'\u20B9'}${val}`} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(val) => formatCurrency(val)} />
                             <Tooltip
-                                formatter={(val) => `${'\u20B9'}${val}`}
+                                formatter={(val) => formatCurrency(val)}
                                 cursor={{ fill: '#f4f1ea' }}
                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                             />
@@ -406,7 +407,7 @@ export default function Analytics() {
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                                     ))}
                                 </Pie>
-                                <Tooltip formatter={(value) => `${'\u20B9'}${value.toFixed(2)}`} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                                <Tooltip formatter={(value) => `${formatCurrency(value)}`} contentStyle={{ borderRadius: '12px', border: 'none' }} />
                                 <Legend iconType="circle" />
                             </PieChart>
                         </ResponsiveContainer>
@@ -435,7 +436,7 @@ export default function Analytics() {
                                                 )}
                                             </span>
                                             <span className="text-[10px] text-nature-500 font-medium">
-                                                {'\u20B9'}{cat.value.toFixed(0)} / {'\u20B9'}{limit}
+                                                {formatCurrency(cat.value)} / {formatCurrency(limit)}
                                             </span>
                                         </div>
                                         <div className="h-2 bg-nature-100 rounded-full overflow-hidden">

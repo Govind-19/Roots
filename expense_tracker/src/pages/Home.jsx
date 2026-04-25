@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
 import { useAuth } from '../context/AuthContext';
 import { ArrowUpCircle, ArrowDownCircle, Wallet, HandCoins, Repeat, LogOut, Landmark } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency } from '../lib/utils';
 import { useCountUp } from '../hooks/useCountUp';
 
 export default function Home({ setActiveTab }) {
@@ -78,11 +78,11 @@ export default function Home({ setActiveTab }) {
                         <span className="text-[10px] font-medium tracking-wider uppercase">Total Stash</span>
                     </div>
                     <div className="text-3xl font-serif font-bold mb-1 animate-count">
-                        {'\u20B9'}{animatedBalance.toFixed(2)}
+                        {formatCurrency(animatedBalance)}
                     </div>
                     {currentMonth.carryOver !== 0 && (
                         <div className="text-[10px] text-white/40 mb-3">
-                            Carry-over: {'\u20B9'}{currentMonth.carryOver.toFixed(2)}
+                            Carry-over: {formatCurrency(currentMonth.carryOver)}
                         </div>
                     )}
                     <div className="flex justify-between gap-3 mt-3">
@@ -91,14 +91,14 @@ export default function Home({ setActiveTab }) {
                                 <ArrowDownCircle className="w-3 h-3 text-green-300" />
                                 <span className="text-[9px] text-white/50 uppercase tracking-wide">Income</span>
                             </div>
-                            <div className="font-semibold text-sm">{'\u20B9'}{animatedIncome.toFixed(2)}</div>
+                            <div className="font-semibold text-sm">{formatCurrency(animatedIncome)}</div>
                         </div>
                         <div className="flex-1 bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/10">
                             <div className="flex items-center gap-1.5 mb-0.5">
                                 <ArrowUpCircle className="w-3 h-3 text-red-300" />
                                 <span className="text-[9px] text-white/50 uppercase tracking-wide">Expense</span>
                             </div>
-                            <div className="font-semibold text-sm">{'\u20B9'}{animatedExpense.toFixed(2)}</div>
+                            <div className="font-semibold text-sm">{formatCurrency(animatedExpense)}</div>
                         </div>
                     </div>
                 </div>
@@ -120,7 +120,7 @@ export default function Home({ setActiveTab }) {
                         </div>
                     </div>
                     <div className="font-bold text-lg font-serif text-blue-800">
-                        {'\u20B9'}{totalOwed.toFixed(2)}
+                        {formatCurrency(totalOwed)}
                     </div>
                 </button>
             )}
@@ -141,7 +141,7 @@ export default function Home({ setActiveTab }) {
                         </div>
                     </div>
                     <div className="font-bold text-lg font-serif text-amber-800">
-                        {'\u20B9'}{totalOutstanding.toFixed(2)}
+                        {formatCurrency(totalOutstanding)}
                     </div>
                 </button>
             )}
@@ -203,7 +203,7 @@ export default function Home({ setActiveTab }) {
                                     t.type === 'lent' ? "text-amber-700" :
                                     "text-red-800"
                                 )}>
-                                    {t.type === 'income' ? '+' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
+                                    {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                                 </div>
                             </div>
                         ))

@@ -258,6 +258,16 @@ export function ExpenseProvider({ children }) {
         });
     }, [saveToFirestore]);
 
+    const restoreTransaction = useCallback((item) => {
+        if (!item) return;
+        setTransactions(prev => {
+            if (prev.some(t => t.id === item.id)) return prev;
+            const updated = [item, ...prev];
+            saveToFirestore({ transactions: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
     const updateTransaction = useCallback((id, fields) => {
         setTransactions(prev => {
             const updated = prev.map(t => t.id === id ? { ...t, ...fields } : t);
@@ -282,6 +292,16 @@ export function ExpenseProvider({ children }) {
         });
     }, [saveToFirestore]);
 
+    const restoreRepayment = useCallback((item) => {
+        if (!item) return;
+        setRepayments(prev => {
+            if (prev.some(r => r.id === item.id)) return prev;
+            const updated = [item, ...prev];
+            saveToFirestore({ repayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
     const addBorrowedRepayment = useCallback((repayment) => {
         setBorrowedRepayments(prev => {
             const updated = [{ id: crypto.randomUUID(), date: new Date().toISOString(), ...repayment }, ...prev];
@@ -293,6 +313,16 @@ export function ExpenseProvider({ children }) {
     const deleteBorrowedRepayment = useCallback((id) => {
         setBorrowedRepayments(prev => {
             const updated = prev.filter(r => r.id !== id);
+            saveToFirestore({ borrowedRepayments: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
+    const restoreBorrowedRepayment = useCallback((item) => {
+        if (!item) return;
+        setBorrowedRepayments(prev => {
+            if (prev.some(r => r.id === item.id)) return prev;
+            const updated = [item, ...prev];
             saveToFirestore({ borrowedRepayments: updated });
             return updated;
         });
@@ -323,6 +353,16 @@ export function ExpenseProvider({ children }) {
     const deleteRecurringItem = useCallback((id) => {
         setRecurringItems(prev => {
             const updated = prev.filter(r => r.id !== id);
+            saveToFirestore({ recurringItems: updated });
+            return updated;
+        });
+    }, [saveToFirestore]);
+
+    const restoreRecurringItem = useCallback((item) => {
+        if (!item) return;
+        setRecurringItems(prev => {
+            if (prev.some(r => r.id === item.id)) return prev;
+            const updated = [item, ...prev];
             saveToFirestore({ recurringItems: updated });
             return updated;
         });
@@ -493,11 +533,14 @@ export function ExpenseProvider({ children }) {
             repayments,
             addTransaction,
             deleteTransaction,
+            restoreTransaction,
             updateTransaction,
             addRepayment,
             deleteRepayment,
+            restoreRepayment,
             addBorrowedRepayment,
             deleteBorrowedRepayment,
+            restoreBorrowedRepayment,
             borrowedData,
             totalOwed,
             balance,
@@ -516,6 +559,7 @@ export function ExpenseProvider({ children }) {
             recurringItems,
             addRecurringItem,
             deleteRecurringItem,
+            restoreRecurringItem,
             toggleRecurringPause,
             runRecurringNow,
             dataLoaded,
