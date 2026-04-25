@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useExpenses } from '../context/ExpenseContext';
-import { Users, ChevronDown, CheckCircle2, Plus, Trash2, Landmark } from 'lucide-react';
+import { Users, ChevronDown, CheckCircle2, Plus, Trash2, Landmark, ArrowDownCircle, HandCoins, CheckCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 
@@ -27,6 +27,7 @@ function ExpandableSection({ isExpanded, children }) {
 function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem, accentColor }) {
     const [repaymentAmount, setRepaymentAmount] = useState('');
     const [showInput, setShowInput] = useState(false);
+    const [showSettleConfirm, setShowSettleConfirm] = useState(false);
 
     const colors = {
         amber: {
@@ -56,6 +57,13 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
     const lentLabel = accentColor === 'blue' ? 'Borrowed' : 'Lent';
     const repaidLabel = accentColor === 'blue' ? 'Repaid by me' : 'Repaid';
     const repaymentBtnLabel = accentColor === 'blue' ? 'Record My Repayment' : 'Record Repayment';
+    const outstandingAmount = Math.max(0, person.outstanding);
+
+    const timeline = useMemo(() => {
+        const txItems = person.transactions.map(t => ({ ...t, _kind: 'tx' }));
+        const repItems = person.repayments.map(r => ({ ...r, _kind: 'repayment' }));
+        return [...txItems, ...repItems].sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [person.transactions, person.repayments]);
 
     const handleAdd = () => {
         const amt = parseFloat(repaymentAmount);
@@ -63,6 +71,20 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
         onAddRepayment(person.name, amt);
         setRepaymentAmount('');
         setShowInput(false);
+    };
+
+    const handleSettleUp = () => {
+        if (outstandingAmount <= 0) return;
+        if (accentColor === 'blue') {
+            setShowSettleConfirm(true);
+        } else {
+            onAddRepayment(person.name, outstandingAmount);
+        }
+    };
+
+    const confirmSettleUp = () => {
+        if (outstandingAmount <= 0) return;
+        onAddRepayment(person.name, outstandingAmount);
     };
 
     return (
@@ -115,48 +137,58 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                     </div>
 
                     <div className="space-y-1.5">
-                        <div className="text-[10px] font-bold text-nature-500 uppercase tracking-wider">{lentLabel} History</div>
-                        {person.transactions.map(t => (
-                            <div key={t.id} className={cn("flex justify-between items-center p-2.5 rounded-xl text-sm", colors.txBg)}>
-                                <div>
-                                    <span className="font-medium text-nature-800">{t.name || lentLabel}</span>
-                                    <span className="text-[10px] text-nature-500 ml-2">
-                                        {new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={cn("font-bold", colors.txAmount)}>₹{t.amount.toFixed(2)}</span>
-                                    <button onClick={() => onDeleteItem({ type: 'tx', id: t.id, amount: t.amount })} className="p-1 text-nature-300 hover:text-red-500 rounded-full transition-colors">
-                                        <Trash2 className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {person.repayments.length > 0 && (
-                        <div className="space-y-1.5">
-                            <div className="text-[10px] font-bold text-nature-500 uppercase tracking-wider">Repayments</div>
-                            {person.repayments.map(r => (
-                                <div key={r.id} className="flex justify-between items-center bg-green-50/50 p-2.5 rounded-xl text-sm">
-                                    <span className="text-[10px] text-nature-500">
-                                        {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-green-700">₹{r.amount.toFixed(2)}</span>
-                                        <button onClick={() => onDeleteItem({ type: 'repayment', id: r.id, amount: r.amount })} className="p-1 text-nature-300 hover:text-red-500 rounded-full transition-colors">
+                        <div className="text-[10px] font-bold text-nature-500 uppercase tracking-wider">Timeline</div>
+                        {timeline.map(item => {
+                            const isRepayment = item._kind === 'repayment';
+                            return (
+                                <div
+                                    key={`${item._kind}-${item.id}`}
+                                    className={cn(
+                                        "flex justify-between items-center p-2.5 rounded-xl text-sm",
+                                        isRepayment ? "bg-green-50/50" : colors.txBg
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className={cn(
+                                            "w-6 h-6 rounded-lg flex items-center justify-center shrink-0",
+                                            isRepayment ? "bg-green-100 text-green-700" : (accentColor === 'blue' ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700")
+                                        )}>
+                                            {isRepayment
+                                                ? <ArrowDownCircle className="w-3.5 h-3.5" />
+                                                : (accentColor === 'blue' ? <Landmark className="w-3.5 h-3.5" /> : <HandCoins className="w-3.5 h-3.5" />)}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="font-medium text-nature-800 truncate">
+                                                {isRepayment ? (accentColor === 'blue' ? 'Repayment' : 'Repayment received') : (item.name || lentLabel)}
+                                            </div>
+                                            <div className="text-[9px] text-nature-500">
+                                                {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className={cn(
+                                            "font-bold",
+                                            isRepayment ? "text-green-700" : colors.txAmount
+                                        )}>
+                                            {isRepayment ? '+' : ''}₹{item.amount.toFixed(2)}
+                                        </span>
+                                        <button
+                                            onClick={() => onDeleteItem({ type: isRepayment ? 'repayment' : 'tx', id: item.id, amount: item.amount })}
+                                            className="p-1 text-nature-300 hover:text-red-500 rounded-full transition-colors"
+                                        >
                                             <Trash2 className="w-3 h-3" />
                                         </button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            );
+                        })}
+                    </div>
 
                     {!person.isSettled && (
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                             {showInput ? (
-                                <>
+                                <div className="flex gap-2">
                                     <div className="relative flex-1">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-nature-400 text-sm font-bold">₹</span>
                                         <input
@@ -170,16 +202,34 @@ function PersonCard({ person, isExpanded, onToggle, onAddRepayment, onDeleteItem
                                     </div>
                                     <button onClick={handleAdd} className={cn("px-4 py-2.5 text-white rounded-xl font-bold text-sm active:scale-95 transition-all", colors.btnConfirm)}>Add</button>
                                     <button onClick={() => { setShowInput(false); setRepaymentAmount(''); }} className="px-3 py-2.5 bg-nature-100 text-nature-700 rounded-xl font-bold text-sm hover:bg-nature-200 transition-all">Cancel</button>
-                                </>
+                                </div>
                             ) : (
-                                <button onClick={() => setShowInput(true)} className={cn("w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm border transition-all", colors.btn)}>
-                                    <Plus className="w-4 h-4" /> {repaymentBtnLabel}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowInput(true)} className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm border transition-all", colors.btn)}>
+                                        <Plus className="w-4 h-4" /> {repaymentBtnLabel}
+                                    </button>
+                                    <button
+                                        onClick={handleSettleUp}
+                                        className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl font-bold text-sm bg-green-700 text-white hover:bg-green-800 active:scale-95 transition-all whitespace-nowrap"
+                                        title={`Settle ₹${outstandingAmount.toFixed(2)}`}
+                                    >
+                                        <CheckCheck className="w-4 h-4" /> Settle Up
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
                 </div>
             </ExpandableSection>
+
+            <ConfirmationDialog
+                isOpen={showSettleConfirm}
+                onClose={() => setShowSettleConfirm(false)}
+                onConfirm={confirmSettleUp}
+                title="Settle Up?"
+                message={`This will record a repayment of ₹${outstandingAmount.toFixed(2)} to ${person.name} and clear your outstanding balance.`}
+                confirmText="Settle"
+            />
         </div>
     );
 }
