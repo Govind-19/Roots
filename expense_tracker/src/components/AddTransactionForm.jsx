@@ -51,7 +51,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
             paymentMode,
             date,
             note,
-            ...(type === 'lent' ? { personName: personName.trim() } : {}),
+            ...((type === 'lent' || type === 'borrowed') ? { personName: personName.trim() } : {}),
         };
 
         if (isEditing) {
