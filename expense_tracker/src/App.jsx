@@ -9,6 +9,7 @@ import History from './pages/History';
 import People from './pages/People';
 import Login from './pages/Login';
 import AddTransactionForm from './components/AddTransactionForm';
+import UpdateBanner from './components/UpdateBanner';
 import { Loader2 } from 'lucide-react';
 
 function AppContent() {
@@ -176,6 +177,8 @@ function AppContent() {
                     initialType={initialType}
                 />
             )}
+
+            <UpdateBanner />
         </>
     );
 }
