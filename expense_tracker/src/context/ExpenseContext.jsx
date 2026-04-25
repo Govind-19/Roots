@@ -149,8 +149,8 @@ export function ExpenseProvider({ children }) {
         return () => unsubscribe();
     }, [user]);
 
-    // Process recurring transactions on load
-    useEffect(() => {
+    // Scheduler — fires due recurring items, idempotent for the same calendar day
+    const runRecurringScheduler = useCallback(() => {
         if (!dataLoaded || !user) return;
 
         const lastProcessed = localStorage.getItem(`recurringLastProcessed_${user.uid}`);
@@ -166,7 +166,7 @@ export function ExpenseProvider({ children }) {
             let shouldAdd = false;
 
             if (item.frequency === 'daily') {
-                shouldAdd = getTodayKey() > (item.lastRun || item.createdDate);
+                shouldAdd = today > (item.lastRun || item.createdDate);
             } else if (item.frequency === 'weekly') {
                 const daysSince = Math.floor((now - lastRun) / (1000 * 60 * 60 * 24));
                 shouldAdd = daysSince >= 7;
@@ -198,7 +198,7 @@ export function ExpenseProvider({ children }) {
             const updatedTransactions = [...newTransactions, ...transactions];
             const updatedRecurring = recurringItems.map(item => {
                 const wasAdded = newTransactions.some(t => t.recurringId === item.id);
-                return wasAdded ? { ...item, lastRun: getTodayKey() } : item;
+                return wasAdded ? { ...item, lastRun: today } : item;
             });
             setTransactions(updatedTransactions);
             setRecurringItems(updatedRecurring);
@@ -206,7 +206,41 @@ export function ExpenseProvider({ children }) {
         }
 
         localStorage.setItem(`recurringLastProcessed_${user.uid}`, today);
-    }, [dataLoaded]);
+    }, [dataLoaded, user, recurringItems, transactions, saveToFirestore]);
+
+    useEffect(() => {
+        runRecurringScheduler();
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') runRecurringScheduler();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [runRecurringScheduler]);
+
+    const runRecurringNow = useCallback((id) => {
+        const item = recurringItems.find(r => r.id === id);
+        if (!item) return;
+        const localNow = new Date();
+        localNow.setMinutes(localNow.getMinutes() - localNow.getTimezoneOffset());
+        const newTx = {
+            id: crypto.randomUUID(),
+            name: item.name,
+            amount: item.amount,
+            type: item.type,
+            category: item.category,
+            paymentMode: item.paymentMode,
+            date: localNow.toISOString().slice(0, 16),
+            note: `Recurring (${item.frequency}) — manual`,
+            recurring: true,
+            recurringId: item.id,
+            ...(item.personName ? { personName: item.personName } : {}),
+        };
+        const updatedTransactions = [newTx, ...transactions];
+        const updatedRecurring = recurringItems.map(r => r.id === id ? { ...r, lastRun: getTodayKey() } : r);
+        setTransactions(updatedTransactions);
+        setRecurringItems(updatedRecurring);
+        saveToFirestore({ transactions: updatedTransactions, recurringItems: updatedRecurring });
+    }, [recurringItems, transactions, saveToFirestore]);
 
     const addTransaction = useCallback((transaction) => {
         setTransactions(prev => {
@@ -483,6 +517,7 @@ export function ExpenseProvider({ children }) {
             addRecurringItem,
             deleteRecurringItem,
             toggleRecurringPause,
+            runRecurringNow,
             dataLoaded,
         }}>
             {children}

@@ -1,12 +1,12 @@
 import { useExpenses } from '../context/ExpenseContext';
-import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil, Landmark } from 'lucide-react';
+import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil, Landmark, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState, useMemo } from 'react';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import AddTransactionForm from '../components/AddTransactionForm';
 
 export default function History() {
-    const { transactions, deleteTransaction, recurringItems, deleteRecurringItem, toggleRecurringPause } = useExpenses();
+    const { transactions, deleteTransaction, recurringItems, deleteRecurringItem, toggleRecurringPause, runRecurringNow } = useExpenses();
     const [transactionToDelete, setTransactionToDelete] = useState(null);
     const [transactionToEdit, setTransactionToEdit] = useState(null);
     const [showRecurring, setShowRecurring] = useState(false);
@@ -14,6 +14,7 @@ export default function History() {
     const [filterType, setFilterType] = useState('all');
     const [filterCategory, setFilterCategory] = useState('all');
     const [filterMonth, setFilterMonth] = useState('all');
+    const [filterPaymentMode, setFilterPaymentMode] = useState('all');
 
     // Available categories and months from data
     const categories = useMemo(() => {
@@ -58,6 +59,10 @@ export default function History() {
             });
         }
 
+        if (filterPaymentMode !== 'all') {
+            result = result.filter(t => (t.paymentMode || 'upi') === filterPaymentMode);
+        }
+
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
             result = result.filter(t =>
@@ -69,14 +74,15 @@ export default function History() {
         }
 
         return result;
-    }, [transactions, filterType, filterCategory, filterMonth, searchQuery]);
+    }, [transactions, filterType, filterCategory, filterMonth, filterPaymentMode, searchQuery]);
 
-    const activeFilterCount = [filterType !== 'all', filterCategory !== 'all', filterMonth !== 'all'].filter(Boolean).length;
+    const activeFilterCount = [filterType !== 'all', filterCategory !== 'all', filterMonth !== 'all', filterPaymentMode !== 'all'].filter(Boolean).length;
 
     const clearFilters = () => {
         setFilterType('all');
         setFilterCategory('all');
         setFilterMonth('all');
+        setFilterPaymentMode('all');
         setSearchQuery('');
     };
 
@@ -160,6 +166,24 @@ export default function History() {
                             ))}
                         </select>
                     )}
+
+                    {/* Payment mode filter */}
+                    <select
+                        value={filterPaymentMode}
+                        onChange={(e) => setFilterPaymentMode(e.target.value)}
+                        className={cn(
+                            "px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap transition-all appearance-none cursor-pointer",
+                            filterPaymentMode !== 'all'
+                                ? 'bg-nature-800 text-cream shadow-md'
+                                : 'bg-white/70 text-nature-700 border border-sand'
+                        )}
+                    >
+                        <option value="all">Mode</option>
+                        <option value="upi">UPI</option>
+                        <option value="card">Card</option>
+                        <option value="cash">Cash</option>
+                        <option value="wallet">Wallet</option>
+                    </select>
                 </div>
 
                 {/* Active filters */}
@@ -190,7 +214,11 @@ export default function History() {
                     </button>
                     {showRecurring && (
                         <div className="px-4 pb-4 space-y-2 border-t border-nature-100/50 pt-3">
-                            {recurringItems.map(item => (
+                            {recurringItems.map(item => {
+                                const lastRunLabel = item.lastRun
+                                    ? new Date(item.lastRun).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                    : 'never';
+                                return (
                                 <div key={item.id} className="flex justify-between items-center bg-nature-50/50 p-3 rounded-xl">
                                     <div>
                                         <div className="font-bold text-sm text-nature-900 flex items-center gap-1.5">
@@ -200,8 +228,18 @@ export default function History() {
                                         <div className="text-[10px] text-nature-500">
                                             {'\u20B9'}{item.amount.toFixed(2)} &middot; {item.frequency} &middot; {item.type}
                                         </div>
+                                        <div className="text-[9px] text-nature-400 uppercase tracking-wider mt-0.5">
+                                            Last run: {lastRunLabel}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => runRecurringNow(item.id)}
+                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="Run now"
+                                        >
+                                            <Zap className="w-3.5 h-3.5" />
+                                        </button>
                                         <button
                                             onClick={() => toggleRecurringPause(item.id)}
                                             className={cn("p-1.5 rounded-lg transition-colors", item.paused ? "text-green-600 hover:bg-green-50" : "text-amber-600 hover:bg-amber-50")}
@@ -217,7 +255,8 @@ export default function History() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
