@@ -1,14 +1,23 @@
 import { useExpenses } from '../context/ExpenseContext';
 import { Trash2, ArrowUpCircle, ArrowDownCircle, HandCoins, Search, X, Repeat, Pause, Play, Pencil, Landmark, Zap } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency } from '../lib/utils';
 import { useState, useMemo } from 'react';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import AddTransactionForm from '../components/AddTransactionForm';
+import { useUndoToast } from '../context/UndoToastContext';
+import { useLongPress } from '../hooks/useLongPress';
+
+function LongPressArea({ onLongPress, className, children }) {
+    const bindings = useLongPress(onLongPress, () => {});
+    return <div {...bindings} className={className}>{children}</div>;
+}
 
 export default function History() {
-    const { transactions, deleteTransaction, recurringItems, deleteRecurringItem, toggleRecurringPause, runRecurringNow } = useExpenses();
+    const { transactions, deleteTransaction, restoreTransaction, recurringItems, deleteRecurringItem, restoreRecurringItem, toggleRecurringPause, runRecurringNow } = useExpenses();
+    const undoToast = useUndoToast();
     const [transactionToDelete, setTransactionToDelete] = useState(null);
     const [transactionToEdit, setTransactionToEdit] = useState(null);
+    const [transactionToDuplicate, setTransactionToDuplicate] = useState(null);
     const [showRecurring, setShowRecurring] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
@@ -226,7 +235,7 @@ export default function History() {
                                             {item.paused && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">PAUSED</span>}
                                         </div>
                                         <div className="text-[10px] text-nature-500">
-                                            {'\u20B9'}{item.amount.toFixed(2)} &middot; {item.frequency} &middot; {item.type}
+                                            {formatCurrency(item.amount)} &middot; {item.frequency} &middot; {item.type}
                                         </div>
                                         <div className="text-[9px] text-nature-400 uppercase tracking-wider mt-0.5">
                                             Last run: {lastRunLabel}
@@ -248,7 +257,7 @@ export default function History() {
                                             {item.paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                                         </button>
                                         <button
-                                            onClick={() => deleteRecurringItem(item.id)}
+                                            onClick={() => { deleteRecurringItem(item.id); undoToast.show({ message: `${item.name} deleted`, onUndo: () => restoreRecurringItem(item) }); }}
                                             className="p-1.5 text-nature-300 hover:text-red-500 rounded-lg transition-colors"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
@@ -297,7 +306,10 @@ export default function History() {
                                     )}
                                     style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'both' }}
                                 >
-                                    <div className="flex items-center gap-3">
+                                    <LongPressArea
+                                        onLongPress={() => setTransactionToDuplicate(t)}
+                                        className="flex items-center gap-3 cursor-pointer select-none flex-1 min-w-0"
+                                    >
                                         <div className={cn(
                                             "w-10 h-10 rounded-xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110",
                                             t.type === 'income' ? "bg-green-100/80 text-green-800" :
@@ -331,7 +343,7 @@ export default function History() {
                                             </div>
                                             {t.note && <div className="text-[10px] text-nature-600 mt-0.5 italic">"{t.note}"</div>}
                                         </div>
-                                    </div>
+                                    </LongPressArea>
                                     <div className="flex flex-col items-end gap-1">
                                         <div className={cn(
                                             "font-bold text-sm font-serif",
@@ -340,7 +352,7 @@ export default function History() {
                                             t.type === 'borrowed' ? "text-blue-700" :
                                             "text-red-800"
                                         )}>
-                                            {t.type === 'income' ? '+' : t.type === 'borrowed' ? '' : '-'}{'\u20B9'}{t.amount.toFixed(2)}
+                                            {t.type === 'income' ? '+' : t.type === 'borrowed' ? '' : '-'}{formatCurrency(t.amount)}
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button
@@ -367,9 +379,9 @@ export default function History() {
             <ConfirmationDialog
                 isOpen={!!transactionToDelete}
                 onClose={() => setTransactionToDelete(null)}
-                onConfirm={() => deleteTransaction(transactionToDelete.id)}
+                onConfirm={() => { const item = transactionToDelete; deleteTransaction(item.id); undoToast.show({ message: `${item.name || 'Transaction'} deleted`, onUndo: () => restoreTransaction(item) }); }}
                 title="Delete Record"
-                message={`Are you sure you want to delete this ${transactionToDelete?.type === 'lent' ? 'lending' : transactionToDelete?.type === 'income' ? 'income' : 'expense'} of ${'\u20B9'}${transactionToDelete?.amount?.toFixed(2)}?`}
+                message={`Are you sure you want to delete this ${transactionToDelete?.type === 'lent' ? 'lending' : transactionToDelete?.type === 'income' ? 'income' : 'expense'} of ${formatCurrency(transactionToDelete?.amount ?? 0)}?`}
                 confirmText="Delete"
                 isDestructive={true}
             />
@@ -378,6 +390,13 @@ export default function History() {
                 <AddTransactionForm
                     transaction={transactionToEdit}
                     onClose={() => setTransactionToEdit(null)}
+                />
+            )}
+
+            {transactionToDuplicate && (
+                <AddTransactionForm
+                    duplicateFrom={transactionToDuplicate}
+                    onClose={() => setTransactionToDuplicate(null)}
                 />
             )}
         </div>

@@ -3,16 +3,17 @@ import { createPortal } from 'react-dom';
 import { X, ArrowUpCircle, ArrowDownCircle, HandCoins, Repeat, Landmark } from 'lucide-react';
 import { useExpenses } from '../context/ExpenseContext';
 
-export default function AddTransactionForm({ onClose, initialType = 'expense', transaction = null }) {
+export default function AddTransactionForm({ onClose, initialType = 'expense', transaction = null, duplicateFrom = null }) {
     const { addTransaction, updateTransaction, addRecurringItem, isWarning } = useExpenses();
     const isEditing = !!transaction;
+    const seed = transaction ?? duplicateFrom;
 
-    const [type, setType] = useState(transaction?.type ?? initialType);
-    const [name, setName] = useState(transaction?.name ?? '');
-    const [amount, setAmount] = useState(transaction?.amount?.toString() ?? '');
-    const [category, setCategory] = useState(transaction?.category ?? (initialType === 'income' ? 'Salary' : 'Bills'));
-    const [paymentMode, setPaymentMode] = useState(transaction?.paymentMode ?? 'upi');
-    const [personName, setPersonName] = useState(transaction?.personName ?? '');
+    const [type, setType] = useState(seed?.type ?? initialType);
+    const [name, setName] = useState(seed?.name ?? '');
+    const [amount, setAmount] = useState(seed?.amount?.toString() ?? '');
+    const [category, setCategory] = useState(seed?.category ?? (initialType === 'income' ? 'Salary' : 'Bills'));
+    const [paymentMode, setPaymentMode] = useState(seed?.paymentMode ?? 'upi');
+    const [personName, setPersonName] = useState(seed?.personName ?? '');
     const [isClosing, setIsClosing] = useState(false);
     const [isRecurring, setIsRecurring] = useState(false);
     const [frequency, setFrequency] = useState('monthly');
@@ -28,7 +29,7 @@ export default function AddTransactionForm({ onClose, initialType = 'expense', t
         return now.toISOString().slice(0, 16);
     });
 
-    const [note, setNote] = useState(transaction?.note ?? '');
+    const [note, setNote] = useState(seed?.note ?? '');
 
     const handleClose = useCallback(() => {
         setIsClosing(true);
