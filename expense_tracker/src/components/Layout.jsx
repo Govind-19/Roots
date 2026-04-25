@@ -1,15 +1,19 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Plus, X, ArrowUpCircle, ArrowDownCircle, HandCoins } from 'lucide-react';
+import { Plus, X, ArrowUpCircle, ArrowDownCircle, HandCoins, Landmark } from 'lucide-react';
 import BottomNav from './BottomNav';
 
 export default function Layout({ children, activeTab, setActiveTab, onAddTransaction, isWarning }) {
     const [fabExpanded, setFabExpanded] = useState(false);
     const [ripple, setRipple] = useState(false);
     const [fabVisible, setFabVisible] = useState(true);
+    const [hoveredType, setHoveredType] = useState(null);
     const timerRef = useRef(null);
     const isLongPressRef = useRef(false);
+    const fabExpandedRef = useRef(false);
     const mainRef = useRef(null);
     const lastScrollYRef = useRef(0);
+
+    useEffect(() => { fabExpandedRef.current = fabExpanded; }, [fabExpanded]);
 
     useEffect(() => {
         const el = mainRef.current;
@@ -31,10 +35,16 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
         return () => el.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const handleStart = useCallback((e) => {
+    const findMiniUnderPoint = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        return el?.closest?.('[data-fab-mini]') ?? null;
+    };
+
+    const handlePointerDown = useCallback((e) => {
         e.preventDefault();
         isLongPressRef.current = false;
         setRipple(true);
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
         timerRef.current = setTimeout(() => {
             isLongPressRef.current = true;
             setFabExpanded(true);
@@ -42,23 +52,43 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
         }, 500);
     }, []);
 
-    const handleEnd = useCallback(() => {
+    const handlePointerMove = useCallback((e) => {
+        if (!fabExpandedRef.current) return;
+        const btn = findMiniUnderPoint(e.clientX, e.clientY);
+        setHoveredType(btn?.dataset.fabMini ?? null);
+    }, []);
+
+    const handlePointerUp = useCallback((e) => {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
             timerRef.current = null;
         }
         setRipple(false);
+        try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+
+        if (fabExpandedRef.current) {
+            const btn = findMiniUnderPoint(e.clientX, e.clientY);
+            setHoveredType(null);
+            if (btn) {
+                const type = btn.dataset.fabMini;
+                setFabExpanded(false);
+                onAddTransaction(type);
+            }
+            return;
+        }
+
         if (!isLongPressRef.current) {
             onAddTransaction('expense');
         }
     }, [onAddTransaction]);
 
-    const handleCancel = useCallback(() => {
+    const handlePointerCancel = useCallback(() => {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
             timerRef.current = null;
         }
         setRipple(false);
+        setHoveredType(null);
     }, []);
 
     const handleMiniSelect = (type) => {
@@ -81,9 +111,10 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
     const accentHover = isWarning ? 'hover:bg-[var(--theme-accent-900)]' : 'hover:bg-nature-900';
 
     const miniButtons = [
-        { type: 'expense', label: 'Expense', icon: ArrowUpCircle, color: 'bg-red-500', x: -85, y: -45 },
-        { type: 'income', label: 'Income', icon: ArrowDownCircle, color: 'bg-green-600', x: -40, y: -85 },
-        { type: 'lent', label: 'Lent', icon: HandCoins, color: 'bg-amber-500', x: 10, y: -45 },
+        { type: 'expense', label: 'Expense', icon: ArrowUpCircle, color: 'bg-red-500', x: -95, y: -30 },
+        { type: 'income', label: 'Income', icon: ArrowDownCircle, color: 'bg-green-600', x: -65, y: -75 },
+        { type: 'lent', label: 'Lent', icon: HandCoins, color: 'bg-amber-500', x: -15, y: -95 },
+        { type: 'borrowed', label: 'Borrowed', icon: Landmark, color: 'bg-blue-600', x: 35, y: -75 },
     ];
 
     return (
@@ -113,37 +144,40 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
                         <div className="absolute inset-0 flex items-center justify-center">
                             {/* Overlay for dimming */}
                             <div className="fixed inset-0 bg-black/20" style={{ zIndex: -1 }} />
-                            {miniButtons.map((btn, i) => (
-                                <button
-                                    key={btn.type}
-                                    onClick={() => handleMiniSelect(btn.type)}
-                                    className="absolute flex flex-col items-center gap-1 animate-fab-pop"
-                                    style={{
-                                        transform: `translate(${btn.x}px, ${btn.y}px)`,
-                                        animationDelay: `${i * 0.06}s`,
-                                        animationFillMode: 'both',
-                                    }}
-                                >
-                                    <div className={`${btn.color} text-white p-3 rounded-full shadow-xl`}>
-                                        <btn.icon className="w-5 h-5" />
-                                    </div>
-                                    <span className="text-[10px] font-bold text-nature-900 bg-white/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
-                                        {btn.label}
-                                    </span>
-                                </button>
-                            ))}
+                            {miniButtons.map((btn, i) => {
+                                const isHovered = hoveredType === btn.type;
+                                return (
+                                    <button
+                                        key={btn.type}
+                                        data-fab-mini={btn.type}
+                                        onClick={() => handleMiniSelect(btn.type)}
+                                        className="absolute z-20 flex flex-col items-center gap-1 animate-fab-pop"
+                                        style={{
+                                            '--tx': `${btn.x}px`,
+                                            '--ty': `${btn.y}px`,
+                                            animationDelay: `${i * 0.06}s`,
+                                            animationFillMode: 'both',
+                                        }}
+                                    >
+                                        <div className={`${btn.color} text-white p-3 rounded-full shadow-xl transition-transform pointer-events-none ${isHovered ? 'scale-125 ring-4 ring-white/70' : ''}`}>
+                                            <btn.icon className="w-5 h-5" />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-nature-900 bg-white/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap pointer-events-none">
+                                            {btn.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 
                     {/* Main FAB */}
                     <button
-                        onMouseDown={handleStart}
-                        onMouseUp={handleEnd}
-                        onMouseLeave={handleCancel}
-                        onTouchStart={handleStart}
-                        onTouchEnd={handleEnd}
-                        onTouchCancel={handleCancel}
-                        className={`relative ${accentBg} ${accentHover} text-cream p-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-nature-100 border-2 border-cream/50 theme-transition overflow-hidden select-none`}
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerCancel}
+                        className={`relative ${accentBg} ${accentHover} text-cream p-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-nature-100 border-2 border-cream/50 theme-transition overflow-hidden select-none touch-none`}
                         aria-label="Add Transaction"
                     >
                         {ripple && (
