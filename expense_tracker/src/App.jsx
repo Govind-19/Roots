@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ExpenseProvider, useExpenses } from './context/ExpenseContext';
@@ -17,6 +17,12 @@ function AppContent() {
     const [initialType, setInitialType] = useState('expense');
     const [tabKey, setTabKey] = useState(0);
     const { addTransaction, isWarning, dataLoaded } = useExpenses();
+    const closeFabRef = useRef(null);
+    const isAddModalOpenRef = useRef(false);
+    const activeTabRef = useRef('home');
+
+    useEffect(() => { isAddModalOpenRef.current = isAddModalOpen; }, [isAddModalOpen]);
+    useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
 
     const [processedIds, setProcessedIds] = useState(new Set());
 
@@ -107,6 +113,25 @@ function AppContent() {
         return () => { isMounted = false; };
     }, [addTransaction]);
 
+    useEffect(() => {
+        let listenerHandle;
+        CapacitorApp.addListener('backButton', () => {
+            if (closeFabRef.current?.()) return;
+            if (isAddModalOpenRef.current) {
+                setIsAddModalOpen(false);
+                return;
+            }
+            if (activeTabRef.current !== 'home') {
+                setTabKey(prev => prev + 1);
+                setActiveTab('home');
+                return;
+            }
+            CapacitorApp.exitApp();
+        }).then(handle => { listenerHandle = handle; });
+
+        return () => { listenerHandle?.remove?.(); };
+    }, []);
+
     if (!dataLoaded) {
         return (
             <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -140,6 +165,7 @@ function AppContent() {
                 setActiveTab={handleTabChange}
                 onAddTransaction={handleOpenModal}
                 isWarning={isWarning}
+                closeFabRef={closeFabRef}
             >
                 {renderContent()}
             </Layout>

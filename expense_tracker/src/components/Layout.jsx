@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Plus, X, ArrowUpCircle, ArrowDownCircle, HandCoins, Landmark } from 'lucide-react';
 import BottomNav from './BottomNav';
 
-export default function Layout({ children, activeTab, setActiveTab, onAddTransaction, isWarning }) {
+export default function Layout({ children, activeTab, setActiveTab, onAddTransaction, isWarning, closeFabRef }) {
     const [fabExpanded, setFabExpanded] = useState(false);
     const [ripple, setRipple] = useState(false);
     const [fabVisible, setFabVisible] = useState(true);
@@ -14,6 +14,17 @@ export default function Layout({ children, activeTab, setActiveTab, onAddTransac
     const lastScrollYRef = useRef(0);
 
     useEffect(() => { fabExpandedRef.current = fabExpanded; }, [fabExpanded]);
+
+    useEffect(() => {
+        if (!closeFabRef) return;
+        closeFabRef.current = () => {
+            if (!fabExpandedRef.current) return false;
+            setFabExpanded(false);
+            setHoveredType(null);
+            return true;
+        };
+        return () => { if (closeFabRef.current) closeFabRef.current = null; };
+    }, [closeFabRef]);
 
     useEffect(() => {
         const el = mainRef.current;
